@@ -1,0 +1,62 @@
+struct Data_Packet {
+	byte sensor_types;	// A bitfield of sensor types
+	byte DS_Discovered;	// How many DS18x20 sensor values are sent
+	byte DS_Degraded;	// Boolean, is bus degraded or now
+	int  DHT_h;			// Humidity * 100
+	int  DHT_t;			// Temp * 100
+	int	 BMP_p;			// Pressure * 100
+	int  BMP_t;			// Temp * 100
+	int  RESERVED1;		// reserved for Lux measurement
+	int  RESERVED2;		// unused as yet
+	byte RESERVED3;		// Spare, used for padding at moment
+	int  DS_Temps[8];	// Temps * 100
+}
+
+// Sensor Types for Bit Mask
+#define DS18X20	0x01;
+#define DHT_11	0x02;
+#define DHT_22	0x04;
+#define SHT_11	0x08;
+#define SHT_15	0x10;
+#define BMP_085	0x20;
+#define LUX		0x40;
+
+
+Packet format
+
+First packet of a new reading
+
+Offset	Field Name			Size (bytes)
+	0	Source ID			1
+	1	Number of Packets	1
+	2	This packet Number	1
+	3	Sensor Status		1
+	4	RESERVED			2
+	6	DATA				26
+	
+Second or follow on packets
+
+Offset	Field Name			Size (bytes)
+	0	Source ID			1
+	1	0xAA				1			//Follow on specifier
+	2	This Packet Number	1
+	3	RESERVED			1
+	4	DATA				28
+	
+
+Data format
+
+Data section of packets are variable length, the first byte is a sensor type specifier which defines the number and format of the following bytes. The second byte is the sensor ID (can be 8 bytes for 1-wire device addresses), following address byte(s) the data is transmitted as a number of 16bit signed ints, zero padded if needed.
+
+Data readings cannotbe split over multiple packets, if there's no room in a packet for a new reading the rest of the packet is zeroed out.
+
+Example:
+A BMP085 sensor is transmitting temp and pressure. There is only one sensor, so ID = 0. Data is two 16 bit ints.
+
+DATA : BMP_085 0x00 BMP_p BMP_t
+
+Example:
+A DS1x20 device is sending temperature data, the address is 8 bytes, the data is one 16 bit int.
+
+DATA : DS18X20 0x28 0x1D 0x39 0x31 0x2 0x0 0x0 0xF0 DS_TEMP
+
