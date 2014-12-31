@@ -37,7 +37,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS_sensors(&oneWire);
 // arrays to hold device addresses
 byte DS_Addrs [DS_NumSensors][8];  // Somewhere to store the device addresses.
-//int  DS_Temps [DS_NumSensors];     // Somewhere to store temps - should really be malloc'ed based on num of detected devices
+int  DS_Temps [DS_NumSensors];     // Somewhere to store temps - should really be malloc'ed based on num of detected devices
 //byte DS_Discovered;   // How many sensors we actually see on the bus, should be same as DS_NumSensors if all is well.
 //byte DS_Degraded;    // if DS_Discovered != DS_NumSensors, then consider the bus degraded and flag it.
 
@@ -66,25 +66,27 @@ int md;
 // so ...Temperature(...) must be called before ...Pressure(...).
 long b5; 
 
-#define 
 
-
-struct Data_Packet {
-	byte sensor_types;	// A bitfield of sensor types
-	byte DS_Discovered;	// How many DS18x20 sensor values are sent
-	byte DS_Degraded;	// Boolean, is bus degraded or now
-	int  DHT_h;		// Humidity * 100
-	int  DHT_t;		// Temp * 100
-	int  BMP_p;		// Pressure * 100
-	int  BMP_t;		// Temp * 100
-	int  RESERVED1;		// reserved for Lux measurement
-	int  RESERVED2;		// unused as yet
-	byte RESERVED3;		// Spare, used for padding at moment
-	int  DS_Temps[8];	// Temps * 100
+struct Data_Packet1 {
+	byte SourceID;        //1 byte
+        byte NumberOfPackets; //1 byte
+        byte ThisPacketID;    //1 byte
+        byte SensorStatus;    //1 byte
+        int  RESERVED;        //2 bytes
+        int  DATA[13];        //26 bytes
 };
 
-Data_Packet sensor_data;
+struct Data_PacketN {
+        byte SourceID;        //1 byte
+        static const byte FollowON = 0xAA; // 1byte 
+        byte ThisPacketID;   //1 byte
+        byte RESERVED;        //1 byte
+        int  DATA[14];        //28 bytes
+};
 
+
+Data_Packet1 firstpacket;
+byte DS_Discovered;
 
 void setup()
 {
@@ -98,15 +100,14 @@ void setup()
   radio.setPALevel(RF24_PA_MAX);    // set TX power to 0 dbm
     
   DS_sensors.begin();
-  sensor_data.DHT_h = 5;//DS18X20|DHT_22|BMP_085;
-
-  sensor_data.DS_Discovered = DS_DetectDevices();
-  if (sensor_data.DS_Discovered != DS_NumSensors)
-    sensor_data.DS_Degraded = 1;
+  
+  DS_Discovered = DS_DetectDevices();
+  if (DS_Discovered != DS_NumSensors)
+    firstpacket.SensorStatus = DS18X20;
   else
-    sensor_data.DS_Degraded = 0;
+   firstpacket.SensorStatus = 0;
     
-  for (byte i=0; i < sensor_data.DS_Discovered; i++)
+  for (byte i=0; i < DS_Discovered; i++)
   {
     DS_sensors.setResolution(DS_Addrs[i], 12);      
   }
@@ -139,10 +140,16 @@ void loop ()
  //get temps from the DS18x20 sensors
  DS_sensors.requestTemperatures();
  
- for (byte i = 0; i <  sensor_data.DS_Discovered; i++)
+ for (byte i = 0; i <  DS_Discovered; i++)
  {
    tmp = DS_sensors.getTempC(DS_Addrs[i]);
-   sensor_data.DS_Temps[i] = 100 * tmp;
+    // error handling - if we're out of sensible limits set flag in firstpacket
+    if ((tmp > 60) || (tmp == -127))
+    {
+        firstpacket.SensorStatus = DS18X20;
+    }
+    
+   DS_Temps[i] = 100 * tmp;
  }
  
  
