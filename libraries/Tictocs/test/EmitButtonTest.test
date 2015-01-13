@@ -1,0 +1,119 @@
+// STL includes
+#include <vector>
+#include <string>
+
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+#include <WProgram.h>
+
+// Project includes
+#include <Globals.h>
+#include <Updater.h>
+#include <EmitButton.h>
+#include <Connector.h>
+
+using namespace std;
+
+extern "C" void mock_time_reset(void);
+
+class EmitButtonTestSuite: public CxxTest::TestSuite
+{
+  static const int signal_pressed = 5, signal_released = 6;
+  struct listener: public Connectable
+  {
+    int pressed, released;
+    listener(Connector& _conn): Connectable(_conn), pressed(0), released(0) {}
+    void onNotify(const Connectable*, uint8_t signal)
+    {
+      if ( signal == signal_pressed )
+	++pressed;
+      else if ( signal == signal_released )
+	++released;
+    }
+  };
+
+  EmitButton* pbutton;
+  listener* plisten;
+  Updater* pUpdater;
+  Connector* pConnector;
+public:
+  void setUp()
+  {
+    mock_time_reset();
+
+    pUpdater = new Updater();
+    pConnector = new Connector();
+    plisten = new listener(*pConnector);
+    plisten->listen(pbutton,signal_pressed);
+    plisten->listen(pbutton,signal_released);
+  }
+  void tearDown()
+  {
+    delete pbutton;
+    delete plisten;
+    delete pConnector;
+    delete pUpdater;
+    theLogger.setVerbose(false);
+  }
+  void testCreate()
+  {
+    pbutton = new EmitButton(*pConnector,1,signal_pressed);
+    TS_ASSERT(pbutton);
+  }
+  void testNotPressed()
+  {
+    pbutton = new EmitButton(*pConnector,1,signal_pressed);
+    pUpdater->add(pbutton);
+    pbutton->begin();
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS(plisten->pressed,0);
+  }
+  void testPressed()
+  {
+    pbutton = new EmitButton(*pConnector,1,signal_pressed);
+    pUpdater->add(pbutton);
+    pbutton->begin();
+    thePins.hwSetDigital(1,0);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS(plisten->pressed,1);
+  }
+  void testReleased()
+  {
+    pbutton = new EmitButton(*pConnector,1,signal_pressed,signal_released);
+    pUpdater->add(pbutton);
+    pbutton->begin();
+    thePins.hwSetDigital(1,0);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+    thePins.hwSetDigital(1,1);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS(plisten->released,1);
+  }
+  void testNoReleasedSignal()
+  {
+    pbutton = new EmitButton(*pConnector,1,signal_pressed);
+    pUpdater->add(pbutton);
+    pbutton->begin();
+    thePins.hwSetDigital(1,0);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+    thePins.hwSetDigital(1,1);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS(plisten->released,0);
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

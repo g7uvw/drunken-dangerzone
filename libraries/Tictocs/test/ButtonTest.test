@@ -1,0 +1,268 @@
+// STL includes
+#include <vector>
+#include <string>
+
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+#include <WProgram.h>
+
+// Project includes
+#include <Globals.h>
+#include <Updater.h>
+#include <Button.h>
+
+using namespace std;
+
+extern "C" void mock_time_reset(void);
+
+class ButtonTestSuite: public CxxTest::TestSuite
+{
+  struct TestButton: public Button
+  {
+    int pressed;
+    int released;
+    TestButton(int _pin): Button(_pin,20), pressed(0), released(0) {}
+    void onPressed(void)
+    {
+      ++pressed;
+    }
+    void onReleased(unsigned long)
+    {
+      ++released;
+    }
+  };
+  struct TimeoutButton: public Button
+  {
+    int released;
+    unsigned long timeout;
+    TimeoutButton(int _pin, unsigned long _timeout): Button(_pin,20), released(0), timeout(_timeout) {}
+    void onReleased(unsigned long presstime)
+    {
+      if ( presstime < timeout ) 
+	++released;
+    }
+  };
+
+  Button* pb;
+  TestButton* ptestbutton;
+  Updater* pUpdater;
+public:
+  void setUp()
+  {
+    pb = new Button(1,20);
+    ptestbutton = new TestButton(2);
+    pUpdater = new Updater();
+
+    mock_time_reset();
+    thePins.clear();
+    theLogger.clear();
+    theLogger.setRate(0);
+    
+    pb->begin();
+  }
+  void tearDown()
+  {
+    delete pUpdater;
+    delete ptestbutton;
+    delete pb;
+    theLogger.setVerbose(false);
+  }
+
+  void testBegin( void )
+  {
+    TS_ASSERT_EQUALS( theLogger.lines_contain("1 INPUT"), 1 );
+  }
+
+  void testInitialState( void )
+  {
+    TS_ASSERT_EQUALS( pb->isPressed(), false );
+  }
+
+  void testUpdate( void )
+  {
+    pUpdater->add(pb);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->isPressed(), false );
+  }
+
+  void testNotYetPressed( void )
+  {
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(10);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->isPressed(), false );
+  }
+
+  void testNotEverPressed( void )
+  {
+    thePins.hwSetDigital(1,1);
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(30);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->isPressed(), false );
+  }
+
+  void testIsPressed( void )
+  {
+    thePins.hwSetDigital(1,1);
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(30);
+    thePins.hwSetDigital(1,0);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->isPressed(), true );
+  }
+  
+  void testWasNotPressed( void )
+  {
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(10);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->wasPressed(), false );
+  }
+  
+  void testWasPressed( void )
+  {
+    thePins.hwSetDigital(1,1);
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(30);
+    thePins.hwSetDigital(1,0);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pb->wasPressed(), true );
+  }
+  
+  void testWasNotReleased( void )
+  {
+    pUpdater->add(pb);
+    pUpdater->update();
+    delay(30); 
+    pUpdater->update();
+    // Now we have been pressed, release
+    thePins.hwSetDigital(1,1);
+    delay(10); 
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( pb->wasReleased(), false );
+  }
+
+  void testOverridePressed( void )
+  {
+    ptestbutton->begin();
+    thePins.hwSetDigital(2,1);
+    pUpdater->add(ptestbutton);
+    pUpdater->update();
+    delay(30); 
+    thePins.hwSetDigital(2,0);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( ptestbutton->pressed, 1 );
+  }
+
+  void testOverrideNotPressed( void )
+  {
+    ptestbutton->begin();
+    pUpdater->add(ptestbutton);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( ptestbutton->pressed, 0 );
+  }
+
+  void testOverrideNotReleased( void )
+  {
+    ptestbutton->begin();
+    pUpdater->add(ptestbutton);
+    pUpdater->update();
+    delay(30); 
+    pUpdater->update();
+    thePins.hwSetDigital(2,1);
+    delay(10); 
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( ptestbutton->released , 0 );
+  }
+
+  void testOverrideReleased( void )
+  {
+    ptestbutton->begin();
+    thePins.hwSetDigital(2,1);
+    pUpdater->add(ptestbutton);
+    pUpdater->update();
+    delay(30); 
+    thePins.hwSetDigital(2,0);
+    pUpdater->update();
+    delay(30); 
+    thePins.hwSetDigital(2,1);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( ptestbutton->released , 1 );
+  }
+
+  void testMultiplePresses( void )
+  {
+    ptestbutton->begin();
+    const int num_presses = 5;
+    pUpdater->add(ptestbutton);
+   
+    int i = num_presses;
+    while (i--)
+    {
+      thePins.hwSetDigital(2,0);
+      pUpdater->update();
+      delay(30); 
+      pUpdater->update();
+      thePins.hwSetDigital(2,1);
+      delay(30); 
+      pUpdater->update();
+    }
+    TS_ASSERT_EQUALS( ptestbutton->pressed , num_presses );
+    TS_ASSERT_EQUALS( ptestbutton->released , num_presses );
+  }
+  void testWithinTimeout( void )
+  {
+    TimeoutButton tob(3,1000);
+    tob.begin();
+    thePins.hwSetDigital(3,1);
+    pUpdater->add(&tob);
+
+    pUpdater->update();
+    delay(30); 
+    thePins.hwSetDigital(3,0);
+    pUpdater->update();
+    delay(30); 
+    thePins.hwSetDigital(3,1);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( tob.released , 1 );
+  }
+  void testOutsideTimeout( void )
+  {
+    TimeoutButton tob(3,1000);
+    tob.begin();
+    pUpdater->add(&tob);
+
+    pUpdater->update();
+    delay(50); 
+    pUpdater->update();
+    delay(1100); 
+    pUpdater->update();
+    thePins.hwSetDigital(3,1);
+    delay(30); 
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( tob.released , 0 );
+  }
+
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

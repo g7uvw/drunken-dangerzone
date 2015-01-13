@@ -1,0 +1,122 @@
+// STL includes
+#include <vector>
+#include <string>
+
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+
+// Project includes
+#include <Updater.h>
+#include <IUpdate.h>
+
+using namespace std;
+
+class UpdateTestSuite: public CxxTest::TestSuite
+{
+  struct GetsUpdated: public IUpdate
+  {
+    int was_updated;
+    GetsUpdated(void): was_updated(0) 
+    {
+    }
+    void update(void) 
+    {
+      ++was_updated;
+    }
+  };
+
+  struct GetsUpdatedAuto: public Updatable
+  {
+    int was_updated;
+    GetsUpdatedAuto(void): was_updated(0) 
+    {
+    }
+    void update(void) 
+    {
+      ++was_updated;
+    }
+  };
+
+  GetsUpdated* p;
+  GetsUpdatedAuto* pGetsUpdatedAuto;
+  Updater* pUpdater;
+public:
+  void setUp()
+  {
+    p = new GetsUpdated();
+    pGetsUpdatedAuto = new GetsUpdatedAuto();
+    pUpdater = new Updater();
+  }
+
+  void tearDown()
+  {
+    delete pUpdater;
+    delete pGetsUpdatedAuto;
+    delete p;
+  }
+
+  void testEmptyObject( void )
+  {
+    TS_ASSERT_EQUALS( p->was_updated, 0 );
+  }
+  
+  void testUpdate( void )
+  {
+    IUpdate* piu = dynamic_cast<IUpdate*>(p);
+    piu->update();
+
+    TS_ASSERT_EQUALS( p->was_updated, 1 );
+  }
+
+  void testEmptyUpdateManager( void )
+  {
+    TS_ASSERT_EQUALS( pUpdater->size(), 0 );
+  }
+  
+  void testAddAnItem( void )
+  {
+    pUpdater->add(p);
+    TS_ASSERT_EQUALS( pUpdater->size(), 1 );
+  }
+  
+  void testUpdateViaManager( void )
+  {
+    pUpdater->add(p);
+    pUpdater->update();
+    TS_ASSERT_EQUALS( p->was_updated, 1 );
+  }
+
+  void testMultipleUpdates( void )
+  {
+    pUpdater->add(p);
+    pUpdater->add(p);
+    pUpdater->add(p);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( p->was_updated, 3 );
+  }
+  
+  void testMaxUpdates( void )
+  {
+    // Even if we TRY to update one too many objects, we will still only
+    // add 'max_objects' objects
+
+    int i = pUpdater->getMax() + 1;
+    while (i--)
+      pUpdater->add(p);
+    
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( p->was_updated, pUpdater->getMax() );
+  }
+
+  void testAutoUpdate( void )
+  {
+    pGetsUpdatedAuto->begin();
+    theUpdater.update();
+    TS_ASSERT_EQUALS( pGetsUpdatedAuto->was_updated, 1 );
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

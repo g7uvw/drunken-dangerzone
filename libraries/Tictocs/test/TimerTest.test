@@ -1,0 +1,145 @@
+// STL includes
+#include <vector>
+#include <string>
+
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+#include <WProgram.h>
+
+// Project includes
+#include <Updater.h>
+#include <TTTimer.h>
+
+using namespace std;
+using namespace Tictocs;
+
+extern "C" void mock_time_reset(void);
+
+class TimerTestSuite: public CxxTest::TestSuite
+{
+  struct TestTimer: public Timer
+  {
+    int num_fired;
+    TestTimer(unsigned long _interval): Timer(_interval), num_fired(0) {}
+    void onFired(void) { ++num_fired; }
+  };
+  Timer* pTimer;
+  TestTimer* pTestTimer;
+  Updater* pUpdater;
+public:
+  void setUp()
+  {
+    mock_time_reset();
+    
+    pTimer = new Timer(200);
+    pTestTimer = new TestTimer(200);
+    pUpdater = new Updater();
+  }
+  void tearDown()
+  {
+    delete pUpdater;
+    delete pTestTimer;
+    delete pTimer;
+  }
+
+  void testEmpty( void )
+  {
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testUpdate( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testFired( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    delay(250);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), true );
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testNotFired( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    delay(20);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testFiredTwice( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    delay(250);
+    pUpdater->update();
+    pTimer->wasFired(); // swallow the first one
+    delay(250);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), true );
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testFiredOverride( void )
+  {
+    pUpdater->add(pTestTimer);
+    pUpdater->update();
+    delay(250);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTestTimer->num_fired, 1 );
+  }
+  void testReset( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    delay(100);
+    pUpdater->update();
+    pTimer->reset();
+    delay(150);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testChangeInterval( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    pTimer->setInterval(100);
+    delay(150);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), true );
+  }
+  void testDisable( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    pTimer->disable();
+    delay(250);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), false );
+  }
+  void testDisableAndEnable( void )
+  {
+    pUpdater->add(pTimer);
+    pUpdater->update();
+    pTimer->disable();
+    delay(250);
+    pUpdater->update();
+    pTimer->reset();
+    delay(250);
+    pUpdater->update();
+    
+    TS_ASSERT_EQUALS( pTimer->wasFired(), true );
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

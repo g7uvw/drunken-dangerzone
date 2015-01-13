@@ -67,7 +67,7 @@ int md;
 long b5; 
 
 
-struct Data_Packet1 {
+struct Data_Packet {
 	byte SourceID;        //1 byte
         byte NumberOfPackets; //1 byte
         byte ThisPacketID;    //1 byte
@@ -76,16 +76,10 @@ struct Data_Packet1 {
         int  DATA[13];        //26 bytes
 };
 
-struct Data_PacketN {
-        byte SourceID;        //1 byte
-        static const byte FollowON = 0xAA; // 1byte 
-        byte ThisPacketID;   //1 byte
-        byte RESERVED;        //1 byte
-        int  DATA[14];        //28 bytes
-};
 
 
-Data_Packet1 firstpacket;
+
+Data_Packet data;
 byte DS_Discovered;
 
 void setup()

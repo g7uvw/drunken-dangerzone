@@ -1,0 +1,101 @@
+// STL includes
+#include <vector>
+#include <string>
+
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+
+// Project includes
+#include <RtcEvent.h>
+#include <Connector.h>
+#include <Globals.h>
+
+using namespace std;
+
+class RtcEventTestSuite: public CxxTest::TestSuite
+{
+  static const uint8_t signal_go = 1;
+  
+  struct listener: public Connectable
+  {
+    int fired;
+    listener(Connector& _conn): Connectable(_conn), fired(0) {}
+    void onNotify(const Connectable*, uint8_t /*signal*/)
+    {
+      ++fired;
+    }
+  };
+  struct Rtc: public IRtc
+  {
+    uint32_t now;
+    virtual bool is_after(uint32_t when) const { return now > when; }
+  };
+  
+  RtcEvent* prtce;  
+  Updater* pUpdater;
+  Connector* pConnector;
+  listener* plisten;
+  Rtc rtc;
+public:
+  void setUp()
+  {
+    mock_time_reset();
+
+    pUpdater = new Updater();
+    pConnector = new Connector();
+    prtce = NULL;
+    plisten = new listener(*pConnector);
+
+    rtc.now = 0;
+    RtcEvent::setRtc(&rtc);
+  }
+
+  void tearDown( void )
+  {
+    delete plisten;
+    if ( prtce )
+      delete prtce;
+    delete pConnector;
+    delete pUpdater;
+    theLogger.setVerbose(false);
+  }
+
+  void testEmpty( void )
+  {
+    prtce = new RtcEvent(*pConnector,0,signal_go);
+    TS_ASSERT(prtce);
+  }
+
+  void testUpdate( void )
+  {
+    prtce = new RtcEvent(*pConnector,0,signal_go);
+    pUpdater->add(prtce);
+  }
+  
+  void testFires( void )
+  {
+    prtce = new RtcEvent(*pConnector,5,signal_go);
+    prtce->begin();
+    pUpdater->add(prtce);
+    plisten->listen(prtce,signal_go);
+   
+    rtc.now = 10;
+    pUpdater->update();
+    TS_ASSERT_EQUALS(plisten->fired,1);
+  }
+  void testDoesntFireOld( void )
+  {
+    rtc.now = 5;
+    prtce = new RtcEvent(*pConnector,0,signal_go);
+    prtce->begin();
+    pUpdater->add(prtce);
+    plisten->listen(prtce,signal_go);
+   
+    rtc.now = 10;
+    pUpdater->update();
+    TS_ASSERT_EQUALS(plisten->fired,0);
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

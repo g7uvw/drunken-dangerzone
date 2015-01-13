@@ -1,0 +1,135 @@
+/*
+ Copyright (C) 2011 J. Coliz <maniacbug@ymail.com>
+
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ version 2 as published by the Free Software Foundation.
+ */
+
+// STL includes
+#include <vector>
+#include <string>
+#include <iostream>
+#include <iterator>
+#include <sstream>
+// C includes
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+#include <Logger.h>
+
+// Project includes
+#include <SimpleLogger.h>
+#include <Globals.h>
+
+using namespace std;
+
+ostream& operator<<(ostream& os, const Logger& log)
+{
+  copy(log.begin(),log.end(),ostream_iterator<string>(os," "));
+  return os;
+}
+
+class SimpleLoggerTestSuite: public CxxTest::TestSuite
+{
+  struct Sender: public Connectable
+  {
+    void send(uint8_t signal)
+    {
+      emit(signal);
+    }
+    Sender(Connector& _conn): Connectable(_conn) {}
+  };
+  struct Receiver: public Connectable
+  {
+    int num_received;
+    Receiver(Connector& _conn): Connectable(_conn), num_received(0) {}
+    virtual void onNotify(const Connectable* ,uint8_t signal)
+    {
+      num_received += signal;
+    }
+  };
+    
+  static const int test_signal = 1;
+
+  Connector* pConnector;
+  Sender *pSender;
+  Receiver *pReceiver;
+  SimpleLogger* pSimpleLogger ;
+public:
+  void setUp()
+  {
+    pConnector = new Connector;
+    pSender = new Sender(*pConnector);
+    pReceiver = new Receiver(*pConnector);
+    pSimpleLogger = new SimpleLogger(10,10);
+
+    theLogger.clear();
+    
+    pConnector->setLogger(pSimpleLogger);
+    pReceiver->listen(/*from*/pSender,/*signal*/test_signal);
+  }
+  void tearDown()
+  {
+    delete pSimpleLogger;
+    delete pReceiver;
+    delete pSender;
+    delete pConnector;
+  }
+  void testEmpty( void )
+  {
+    TS_ASSERT(pSimpleLogger);
+  }
+  void testTextLog( void )
+  {
+    pSender->send(test_signal);
+
+    TS_ASSERT_EQUALS( theLogger.lines_contain("PRTF"), 2 );
+  }
+  void testSignalSymbolReturnsOk( void )
+  {
+    bool ok = pSimpleLogger->setSymbol( test_signal, "test_signal" );
+    
+    TS_ASSERT( ok );
+  }
+  void testSignalSymbolWorks( void )
+  {
+    pSimpleLogger->setSymbol( test_signal, "test_signal" );
+    
+    pSender->send(test_signal);
+
+    TS_ASSERT_EQUALS( theLogger.lines_contain("test_signal"), 1 );
+  }
+  void testSignalSymbolNotFound( void )
+  {
+    pSimpleLogger->setSymbol( test_signal, "test_signal" );
+    
+    pSender->send(test_signal+1);
+
+    ostringstream oss;
+    oss << (test_signal+1);
+
+    TS_ASSERT_EQUALS( theLogger.lines_contain(oss.str()), 1 );
+  }
+  void testObjectSymbolWorks( void )
+  {
+    pSimpleLogger->setSymbol( pSender, "pSender" );
+    
+    pSender->send(test_signal);
+
+    TS_ASSERT_EQUALS( theLogger.lines_contain("pSender"), 1 );
+  }
+  void testAll( void )
+  {
+    pSimpleLogger->setSymbol( pSender, "pSender" );
+    pSimpleLogger->setSymbol( pReceiver, "pReceiver" );
+    pSimpleLogger->setSymbol( test_signal, "test_signal" );
+    
+    pSender->send(test_signal);
+
+    TS_ASSERT_EQUALS( theLogger.lines_contain("pSender"), 1 );
+    TS_ASSERT_EQUALS( theLogger.lines_contain("test_signal"), 1 );
+    TS_ASSERT_EQUALS( theLogger.lines_contain("pReceiver"), 1 );
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp

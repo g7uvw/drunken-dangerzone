@@ -1,0 +1,112 @@
+// STL includes
+#include <vector>
+#include <string>
+#include <typeinfo>
+
+// C includes
+#include <string.h>
+
+// Library includes
+#include <cxxtest/TestSuite.h>
+
+// Project includes
+#include <Connector.h>
+#include <Exception.h>
+
+using namespace std;
+
+class ExceptionTestSuite: public CxxTest::TestSuite
+{
+  struct TestConnectable: public Connectable
+  {
+    TestConnectable(Connector& _conn): Connectable(_conn) {}
+  };
+  struct Receiver: public Connectable
+  {
+    int num_received;
+    Receiver(Connector& _conn): Connectable(_conn), num_received(0) {}
+    virtual void onNotify(const Connectable* ,uint8_t signal)
+    {
+      if ( signal == signal_exception )
+	++ num_received;
+    }
+  };
+  struct WhatReceiver: public Connectable
+  {
+    string what;
+    string who;
+    WhatReceiver(Connector& _conn): Connectable(_conn) {}
+    virtual void onNotify(const Connectable* pConnector,uint8_t signal)
+    {
+      if ( signal == signal_exception )
+      {
+	const Exception* pe = dynamic_cast<const Exception*>(pConnector);
+	if ( pe )
+	{
+	  what = pe->what();
+
+	  who = typeid( *(pe->who()) ).name();
+	}
+      }
+    }
+  };
+  Connector* pConnector;
+  TestConnectable* pTestConnectable;
+  Exception* pe;
+public:
+  void setUp()
+  {
+    pConnector = new Connector;
+    pTestConnectable = new TestConnectable(*pConnector);
+  }
+  void tearDown()
+  {
+    delete pTestConnectable;
+    delete pConnector; 
+  }
+
+  void testCreate( void )
+  {
+    Exception e(pTestConnectable,"Test");
+
+    TS_ASSERT_EQUALS( string(e.what()) , "Test" )
+  }
+  
+  void testCreateVargs( void )
+  {
+    Exception e(pTestConnectable,"Test %i",123);
+
+    TS_ASSERT_EQUALS( string(e.what()) , "Test 123" )
+  }
+  
+  void testCatch( void )
+  {
+    Receiver ex_handler(*pConnector);
+    ex_handler.listen(NULL,signal_exception);
+    
+    Exception e(pTestConnectable,"Test");
+
+    TS_ASSERT_EQUALS( ex_handler.num_received , 1 )
+  }
+  
+  void testGetWhat( void )
+  {
+    WhatReceiver ex_handler(*pConnector);
+    ex_handler.listen(NULL,signal_exception);
+    
+    Exception e(pTestConnectable,"Test");
+
+    TS_ASSERT_EQUALS( ex_handler.what, "Test" )
+  }
+
+  void testGetWho( void )
+  {
+    WhatReceiver ex_handler(*pConnector);
+    ex_handler.listen(NULL,signal_exception);
+    
+    Exception e(pTestConnectable,"Test");
+
+    TS_ASSERT_EQUALS( ex_handler.who, "N18ExceptionTestSuite15TestConnectableE" )
+  }
+};
+// vim:cin:ai:sts=2 sw=2 ft=cpp
