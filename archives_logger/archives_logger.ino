@@ -27,7 +27,8 @@ David Mills 2015 http://webshed.org
 #include "DHT.h"
 #include "RTClib.h"
 #include <Wire.h>
-#include <SD.h>
+//#include <SD.h>  //buggy uses too much power
+#include "SdFat.h"
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 
@@ -48,6 +49,7 @@ volatile byte wdt=0;                       //used to cound number of sleep cycle
 //objects
 DHT dht(DHTPIN, DHTTYPE);
 RTC_DS1307 rtc;
+SdFat SD;
 
 void setup()
 {
