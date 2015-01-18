@@ -29,8 +29,9 @@ David Mills 2015 http://webshed.org
 #include <Wire.h>
 //#include <SD.h>  //buggy uses too much power
 #include "SdFat.h"
-#include <avr/sleep.h>
-#include <avr/wdt.h>
+//#include <avr/sleep.h>
+//#include <avr/wdt.h>
+#include <JeeLib.h>  // Include library containing low power functions
 
 //sleep details
 #define sleepTime  3                       //number of 8 second sleep cycles
@@ -50,7 +51,7 @@ volatile byte wdt=0;                       //used to cound number of sleep cycle
 DHT dht(DHTPIN, DHTTYPE);
 RTC_DS1307 rtc;
 SdFat SD;
-
+ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 void setup()
 {
    // make sure the chipselect pin is enabled correctly 
@@ -64,17 +65,20 @@ void setup()
    dht.begin();
    SD.begin(chipSelect);
    //Serial.begin(9600);
-  
+
   //all setup now - kick the watchdog to get it ready to wake us 
-  setup_watchdog();                         // set prescaller and enable interrupt                  
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);       // sleep mode is set here Power Down uses the least current
+  //setup_watchdog();                         // set prescaller and enable interrupt                  
+  //set_sleep_mode(SLEEP_MODE_PWR_DOWN);       // sleep mode is set here Power Down uses the least current
                                              // system clock is turned off, so millis won't be reliable!
-  delay(10);
+  //delay(10);
 }
 
 void loop()
 {
-  system_sleep();
+  
+      
+  //Sleepy::loseSomeTime(10000L);      // Instead of delay(1000); 
+  //system_sleep();
   digitalWrite(LEDPIN,1);
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
@@ -135,39 +139,42 @@ void loop()
   }
   digitalWrite(LEDPIN,0);
   //delay(5000);
+  //sleep for ~10min
+  for (byte i = 0; i < 10; ++i)
+      Sleepy::loseSomeTime(60000);
 }
 
 
 //sleep code
-void system_sleep() {
-  ADCSRA |= (0<<ADEN);                     // disable ADC
-  sleep_enable();                          // enable sleeping
-  sleep_mode();                            // activate system sleep
-  // sleeping ... 
-  // first action after leaving WDT Interrupt Vector:
-  if (wdt == sleepTime) {                  // sleep for this number times 8 seconds
-    sleep_disable();                       // disable sleep  
-    //ADCSRA |= (1<<ADEN);                   // switch ADC on    
-    wdt = 0;                               // reset watchdog counter   
-  }
-}
+//void system_sleep() {
+//  ADCSRA |= (0<<ADEN);                     // disable ADC
+//  sleep_enable();                          // enable sleeping
+//  sleep_mode();                            // activate system sleep
+//  // sleeping ... 
+//  // first action after leaving WDT Interrupt Vector:
+//  if (wdt == sleepTime) {                  // sleep for this number times 8 seconds
+//    sleep_disable();                       // disable sleep  
+//    //ADCSRA |= (1<<ADEN);                   // switch ADC on    
+//    wdt = 0;                               // reset watchdog counter   
+//  }
+//}
 
 
-void setup_watchdog() {
-cli(); //disable global interrupts
-  MCUSR = 0x00;  //clear all reset flags 
-  //set WD_ChangeEnable and WD_resetEnable to alter the register
-  WDTCSR |= (1<<WDCE) | (1<<WDE);   // this is a timed sequence to protect WDTCSR
-  // set new watchdog timeout value to 1024K cycles (~8.0 sec)
-  WDTCSR = (1<<WDP3) | (1<<WDP0);
-  //enable watchdog interrupt
-  WDTCSR |= (1<<WDIE);    
-sei(); //enable global interrupts
-}
+//void setup_watchdog() {
+//cli(); //disable global interrupts
+//  MCUSR = 0x00;  //clear all reset flags 
+//  //set WD_ChangeEnable and WD_resetEnable to alter the register
+//  WDTCSR |= (1<<WDCE) | (1<<WDE);   // this is a timed sequence to protect WDTCSR
+//  // set new watchdog timeout value to 1024K cycles (~8.0 sec)
+//  WDTCSR = (1<<WDP3) | (1<<WDP0);
+//  //enable watchdog interrupt
+//  WDTCSR |= (1<<WDIE);    
+//sei(); //enable global interrupts
+//}
 
 // Watchdog Interrupt Service Routine. 
 // Very first thing after sleep wakes with WDT Interrupt
-ISR(WDT_vect) {
-  wdt++;  // increment the watchdog timer
-}
+//ISR(WDT_vect) {
+//  wdt++;  // increment the watchdog timer
+//}
 
