@@ -1,7 +1,7 @@
 drunken-dangerzone
 ==================
 
-Just a collection of installed libraies and code I'm hacking on on various locations, it's handy to have a master version (with change tracking) somewhere accessible. 
+Just a collection of installed libraries and code I'm hacking on on various locations, it's handy to have a master version (with change tracking) somewhere accessible. 
 
 I make no promises for the usability of any of the code you find here. There's a good chance it was written to scratch a particular itch I had at some point. Or was written drunk. Or was started and given up on before it ever did anything useful. Or all of the above at the same time.
 
