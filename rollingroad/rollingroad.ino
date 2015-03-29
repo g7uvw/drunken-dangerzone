@@ -7,7 +7,7 @@
 const int LEDpin = 13;
 const int BRAKEpin = 23;
 const int READYpin = 22;
-const int POTPpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
+const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
 
 // Braking POT variables
 int potval = 0, oldpotval = 0;
@@ -16,10 +16,14 @@ int POTreadings[numReadings];      // the readings from the analog input
 int POTindex = 0;                  // the index of the current reading
 int POTtotal = 0;                  // the running total
 int POTaverage = 0;                // the average
+int oldPOTaverage = 0;             // previous average
 
-
+// frequency stuff
 float basefrequency = 0;
 float currentfrequency = 0;
+
+//control booleans
+boolean controllingroad = true;
 
 // Function protoypes
 int getPOTaverage(void);
@@ -55,39 +59,31 @@ while(!(unsigned) (POTaverage-(POTaverage-2)) <= ((POTaverage+2)-(POTaverage-2))
 
 basefrequency = getFREQaverage(50);  // take 50 samples
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
- 
-// if (potval < oldpotval)             // reducing load from road, prior to speeding up?
-// {
-//    if (FreqMeasure.available())
-//    {
-//      //invalidate old frequency 
-//      previousfrequency = FreqMeasure.countToFrequency(FreqMeasure.read());
-//    }
-// }
- 
- oldpotval = potval;                // save the current pot value for checking next loop around
- digitalWriteFast(LEDpin, LOW);     // set the LED off
+controllingroad = true;
 
- 
- if (FreqMeasure.available())
-   {
-    sum += FreqMeasure.read();
-    count++;
-    if (count > 2)
-      {
-        currentfrequency = FreqMeasure.countToFrequency(sum / count);
-        if (currentfrequency > previousfrequency)    // faster than we should be
-          {
-            digitalWriteFast(LEDpin, HIGH);   // set the LED on
-            // going faster this time around, lengthen the brake pulses.
-            analogWrite(BRAKEpin,(potval*2)); 
-          }
-         
-       }
-   }
- else
-   analogWrite(BRAKEpin,potval);
-   previousfrequency = currentfrequency;
+while (controllingroad)
+{
+  POTaverage = getPOTaverage();              // read pot
+  if (POTaverage < oldPOTaverage)            // pot has been reduced, probably going to change car speed, need to recalibrate
+    controllingroad = false;
+    
+  currentfrequency = getFREQaverage(10);
+  if (currentfrequency > basefrequency)       // road is speeding up
+    {
+      analogWrite(BRAKEpin,(POTaverage*2));   // longer pulses
+      digitalWriteFast(LEDpin, HIGH);         // set the LED on
+    }
+  else
+  {
+    analogWrite(BRAKEpin,POTaverage);        // standard pulses
+    digitalWriteFast(LEDpin, LOW);           // set the LED on
+  }
+}
+
+// no longer controlling the road, the speedpot has changed, so we need new frequncy values
+digitalWriteFast(READYpin, LOW);    // set the READY LED off
+
+// loop back to start
 }
 
 
