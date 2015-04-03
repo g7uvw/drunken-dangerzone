@@ -28,13 +28,16 @@ boolean controllingroad = true;
 // Function protoypes
 int getPOTaverage(void);
 int getFREQaverage(void);
+void debugBlink(const int pin, unsigned int flashcount);
 
 void setup()
 {
+ Serial.begin(9600);
  analogWriteResolution(10);          // 10 bit PWM resolution (0 - 1023)
  analogWriteFrequency(23,46875);     // pin 23 as output, PWM frequency 46875Hz
  FreqMeasure.begin();                // start measuring the speed pulses
  pinMode(LEDpin, OUTPUT);  
+ pinMode(READYpin,OUTPUT);
 }
 
 void loop()
@@ -45,19 +48,25 @@ void loop()
  // At this point it's up to this code to keep the road at this speed by providing more
  // braking as the car tries to speed up.
  
- // read the pot & wait for it to become stable (value doesn't change by more than +/- 2)
+ // read the pot & wait for it to become stable (value doesn't change by more than +/- 10)
  // apply braking too, as that's what the driver will detected when setting the pot
 
-while(!(unsigned) (POTaverage-(POTaverage-2)) <= ((POTaverage+2)-(POTaverage-2)))
+debugBlink(READYpin,2);
+while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
+//while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
 {
  POTaverage = getPOTaverage();
+ Serial.print("POT Average: ");
+ Serial.println(POTaverage, DEC);
  analogWrite(BRAKEpin,POTaverage);
+ //oldPOTaverage = POTaverage;
 }
-
+debugBlink(READYpin,4);
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
 
 basefrequency = getFREQaverage(50);  // take 50 samples
+debugBlink(READYpin,6);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
 
@@ -93,7 +102,7 @@ int getPOTaverage(void)
  // zero out the POT array
   for (unsigned int i = 0; i < numReadings; i++)
    POTreadings[i] = 0;  
-    
+  POTtotal = 0;  
   for(unsigned int i = 0; i< numReadings ; i++)
   {
     POTtotal= POTtotal - POTreadings[POTindex];        
@@ -134,4 +143,17 @@ int getFREQaverage(int samples)
 
     int average = FreqMeasure.countToFrequency(sum / samples);
     return average;
+}
+
+void debugBlink(const int pin, unsigned int flashcount)
+{
+  digitalWriteFast(pin, LOW);    // set the LED off
+  for (int count=0; count<flashcount; count++)
+  {
+    digitalWriteFast(pin, HIGH);    // set the LED on
+    delay(1000);
+    digitalWriteFast(pin, LOW);    // set the LED off
+    delay(1000);
+  }
+  digitalWriteFast(pin, LOW);    // set the LED off when we finish
 }
