@@ -51,9 +51,26 @@ void loop()
  // read the pot & wait for it to become stable (value doesn't change by more than +/- 10)
  // apply braking too, as that's what the driver will detected when setting the pot
 
+
+	
+// quick in range code from : https://stackoverflow.com/questions/3964017/checking-if-integer-falls-in-range-using-only-operator
+// Short answer:
+// if (num < max && !(num <= min)) { // stuff to do }
+// This will return true if "num" is between "min" and "max" but is not equal to either of them.
+// If you need it to include "min" and "max" in the range check, use:
+// if (num <= max && !(num < min)) { // stuff to do }
+// This works because...
+// !(A > B)  == (A <= B)  // If not greater than B, must be less than or equal to B
+// !(A >= B) == (A < B)   // If not greater or equal to B, must be less than B
+// !(A < B)  == (A >= B)  // If not less than B, must be greater or equal to B
+// !(A <= B) == (A > B)   // If not less than or equal to B, must be greater than B
+
+
+
 debugBlink(READYpin,2);
-while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
+//while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
+while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10))) 
 {
  POTaverage = getPOTaverage();
  Serial.print("POT Average: ");
