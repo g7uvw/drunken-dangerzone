@@ -21,6 +21,7 @@ int oldPOTaverage = 0;             // previous average
 // frequency stuff
 float basefrequency = 0;
 float currentfrequency = 0;
+float previousfrequency = 0;
 
 //control booleans
 boolean controllingroad = true;
@@ -30,13 +31,20 @@ int getPOTaverage(void);
 int getFREQaverage(void);
 void debugBlink(const int pin, unsigned int flashcount);
 
+
+// PWM Setup - may need tweeking in the field.
+const unsigned int PWM_F = 50;
+//const unsigned int PWM_F = 46875; // too fast for SCR driver brick
+unsigned int PWM_extra = 10;
+
+
 void setup()
 {
  Serial.begin(9600);
  analogWriteResolution(10);          // 10 bit PWM resolution (0 - 1023)
- analogWriteFrequency(23,46875);     // pin 23 as output, PWM frequency 46875Hz
+ analogWriteFrequency(BRAKEpin,PWM_F);     
  FreqMeasure.begin();                // start measuring the speed pulses
- pinMode(LEDpin, OUTPUT);  
+ pinMode(LEDpin, OUTPUT);            // LED setup
  pinMode(READYpin,OUTPUT);
 }
 
@@ -70,6 +78,7 @@ void loop()
 debugBlink(READYpin,2);
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
+
 while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10))) 
 {
  POTaverage = getPOTaverage();
@@ -78,6 +87,7 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  analogWrite(BRAKEpin,POTaverage);
  //oldPOTaverage = POTaverage;
 }
+
 debugBlink(READYpin,4);
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
@@ -90,19 +100,23 @@ controllingroad = true;
 while (controllingroad)
 {
   POTaverage = getPOTaverage();              // read pot
-  if (POTaverage < oldPOTaverage)            // pot has been reduced, probably going to change car speed, need to recalibrate
+  if ((POTaverage < oldPOTaverage) || (  POTaverage > oldPOTaverage ))    // pot has been changed, probably going to change car speed, need to recalibrate
     controllingroad = false;
     
   currentfrequency = getFREQaverage(10);
-  if (currentfrequency > basefrequency)       // road is speeding up
+  if (currentfrequency > basefrequency)       // road going faster than it was...
     {
-      analogWrite(BRAKEpin,(POTaverage*2));   // longer pulses
+      analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // longer pulses
+      if (currentfrequency > previousfrequency)
+         PWM_extra++;                                   //still getting faster, so increase the PWM ontime.
       digitalWriteFast(LEDpin, HIGH);         // set the LED on
+      previousfrequency = currentfrequency;
     }
   else
   {
     analogWrite(BRAKEpin,POTaverage);        // standard pulses
     digitalWriteFast(LEDpin, LOW);           // set the LED on
+    PWM_extra = 5;                           // reset the PWM extra length to something low
   }
 }
 
