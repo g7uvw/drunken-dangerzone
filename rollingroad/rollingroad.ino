@@ -79,13 +79,15 @@ debugBlink(READYpin,2);
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
 
+// I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
+// is in the range +/- 10 of what it started as. This can be tweeked in the final install.
+// uncomment serial.print lines for debugging this.
 while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10))) 
 {
  POTaverage = getPOTaverage();
- Serial.print("POT Average: ");
- Serial.println(POTaverage, DEC);
+ //Serial.print("POT Average: ");
+ //Serial.println(POTaverage, DEC);
  analogWrite(BRAKEpin,POTaverage);
- //oldPOTaverage = POTaverage;
 }
 
 debugBlink(READYpin,4);
