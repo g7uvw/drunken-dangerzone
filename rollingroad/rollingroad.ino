@@ -11,7 +11,7 @@ const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
 
 // Braking POT variables
 int potval = 0, oldpotval = 0;
-const int numReadings = 20;
+const int numReadings = 10;
 int POTreadings[numReadings];      // the readings from the analog input
 int POTindex = 0;                  // the index of the current reading
 int POTtotal = 0;                  // the running total
@@ -35,17 +35,20 @@ void debugBlink(const int pin, unsigned int flashcount);
 // PWM Setup - may need tweeking in the field.
 const unsigned int PWM_F = 50;
 //const unsigned int PWM_F = 46875; // too fast for SCR driver brick
-unsigned int PWM_extra = 10;
+int PWM_extra = 10;
 
 
 void setup()
 {
  Serial.begin(9600);
+ Serial.println("Starting Rolling Road");
  analogWriteResolution(10);          // 10 bit PWM resolution (0 - 1023)
  analogWriteFrequency(BRAKEpin,PWM_F);     
  FreqMeasure.begin();                // start measuring the speed pulses
  pinMode(LEDpin, OUTPUT);            // LED setup
  pinMode(READYpin,OUTPUT);
+ 
+
 }
 
 void loop()
@@ -75,7 +78,7 @@ void loop()
 
 
 
-debugBlink(READYpin,2);
+//debugBlink(READYpin,2);
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
 
@@ -85,37 +88,56 @@ debugBlink(READYpin,2);
 while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10))) 
 {
  POTaverage = getPOTaverage();
- //Serial.print("POT Average: ");
- //Serial.println(POTaverage, DEC);
- analogWrite(BRAKEpin,POTaverage);
+ Serial.print("POT Average: ");
+ Serial.println(POTaverage, DEC);
+ analogWrite(BRAKEpin,POTaverage + PWM_extra);  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
 }
 
-debugBlink(READYpin,4);
+//debugBlink(READYpin,4);
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
 
-basefrequency = getFREQaverage(50);  // take 50 samples
-debugBlink(READYpin,6);
+basefrequency = getFREQaverage(5);  // take 20 samples
+//debugBlink(READYpin,6);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
 
 while (controllingroad)
 {
   POTaverage = getPOTaverage();              // read pot
-  if ((POTaverage < oldPOTaverage) || (  POTaverage > oldPOTaverage ))    // pot has been changed, probably going to change car speed, need to recalibrate
-    controllingroad = false;
-    
-  currentfrequency = getFREQaverage(10);
+  if ((POTaverage < (oldPOTaverage - 2)) || (  POTaverage > (oldPOTaverage + 2) ))    // pot has been changed, probably going to change car speed, need to recalibrate
+    {
+      controllingroad = false;
+      Serial.println("Pot Value changed");
+      Serial.print("OldPOT Average: ");
+      Serial.print(oldPOTaverage,DEC);
+      Serial.print("POT Average: ");
+      Serial.println(POTaverage,DEC);
+    }
+  oldPOTaverage = POTaverage;
+  currentfrequency = getFREQaverage(3);
   if (currentfrequency > basefrequency)       // road going faster than it was...
     {
       analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // longer pulses
-      if (currentfrequency > previousfrequency)
-         PWM_extra++;                                   //still getting faster, so increase the PWM ontime.
+      if (currentfrequency > previousfrequency) //still getting faster, so increase the PWM ontime.
+         {
+           PWM_extra+=10;    
+           Serial.print("Road speeding up, setting PWM to ");
+           Serial.println(POTaverage + PWM_extra, DEC);
+         }
+      if  (currentfrequency < previousfrequency)    // still faster than base freq, but slowing down
+         {
+           if (PWM_extra > 10)
+              PWM_extra-=10;
+           analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // redule pulse length a bit
+         }  
       digitalWriteFast(LEDpin, HIGH);         // set the LED on
       previousfrequency = currentfrequency;
     }
   else
   {
+   //Serial.print("Road speed normal, PWM value ");
+   //Serial.println(POTaverage, DEC);
     analogWrite(BRAKEpin,POTaverage);        // standard pulses
     digitalWriteFast(LEDpin, LOW);           // set the LED on
     PWM_extra = 5;                           // reset the PWM extra length to something low
