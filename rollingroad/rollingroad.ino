@@ -3,6 +3,9 @@
 // eve of first test release
 #include <FreqMeasure.h>
 
+// bug brake values still sent when road speed = 0;
+
+
 // Pin mappings 
 const int LEDpin = 13;
 const int BRAKEpin = 23;
@@ -42,8 +45,9 @@ void setup()
 {
  Serial.begin(9600);
  Serial.println("Starting Rolling Road");
- analogWriteResolution(10);          // 10 bit PWM resolution (0 - 1023)
- analogWriteFrequency(BRAKEpin,PWM_F);     
+ analogWriteResolution(10);          // 16, was 10 bit PWM resolution (0 - 1023)
+ analogWriteFrequency(BRAKEpin,PWM_F);   
+//pinMode(3,INPUT); 
  FreqMeasure.begin();                // start measuring the speed pulses
  pinMode(LEDpin, OUTPUT);            // LED setup
  pinMode(READYpin,OUTPUT);
@@ -53,7 +57,6 @@ void setup()
 
 void loop()
 {
-  
  // Car will be up to speed before the pot is set to provide some drag on the road. 
  // Driver brings the car up to speed then adjusts the pot until they feel some bite.
  // At this point it's up to this code to keep the road at this speed by providing more
@@ -82,6 +85,13 @@ void loop()
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
 
+while (POTaverage < 100)
+{
+ POTaverage = getPOTaverage();
+ Serial.print("Waiting for car to get up to speed - POT Average: ");
+ Serial.println(POTaverage, DEC);
+}
+
 // I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
 // is in the range +/- 10 of what it started as. This can be tweeked in the final install.
 // uncomment serial.print lines for debugging this.
@@ -104,8 +114,9 @@ controllingroad = true;
 
 while (controllingroad)
 {
+  delay(100);
   POTaverage = getPOTaverage();              // read pot
-  if ((POTaverage < (oldPOTaverage - 2)) || (  POTaverage > (oldPOTaverage + 2) ))    // pot has been changed, probably going to change car speed, need to recalibrate
+  if ((POTaverage < (oldPOTaverage - 5)) || (  POTaverage > (oldPOTaverage + 5) ))    // pot has been changed, probably going to change car speed, need to recalibrate
     {
       controllingroad = false;
       Serial.println("Pot Value changed");
@@ -115,20 +126,20 @@ while (controllingroad)
       Serial.println(POTaverage,DEC);
     }
   oldPOTaverage = POTaverage;
-  currentfrequency = getFREQaverage(3);
+  currentfrequency = getFREQaverage(10);
   if (currentfrequency > basefrequency)       // road going faster than it was...
     {
       analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // longer pulses
       if (currentfrequency > previousfrequency) //still getting faster, so increase the PWM ontime.
          {
-           PWM_extra+=10;    
+           PWM_extra+=1;    
            Serial.print("Road speeding up, setting PWM to ");
            Serial.println(POTaverage + PWM_extra, DEC);
          }
       if  (currentfrequency < previousfrequency)    // still faster than base freq, but slowing down
          {
-           if (PWM_extra > 10)
-              PWM_extra-=10;
+           //if (PWM_extra > 10)
+              PWM_extra-=1;
            analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // redule pulse length a bit
          }  
       digitalWriteFast(LEDpin, HIGH);         // set the LED on
@@ -136,11 +147,11 @@ while (controllingroad)
     }
   else
   {
-   //Serial.print("Road speed normal, PWM value ");
-   //Serial.println(POTaverage, DEC);
+   Serial.print("Road speed normal, PWM value ");
+   Serial.println(POTaverage, DEC);
     analogWrite(BRAKEpin,POTaverage);        // standard pulses
     digitalWriteFast(LEDpin, LOW);           // set the LED on
-    PWM_extra = 5;                           // reset the PWM extra length to something low
+    PWM_extra = 0;                           // reset the PWM extra length to something low
   }
 }
 
