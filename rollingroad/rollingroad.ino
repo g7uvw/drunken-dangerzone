@@ -1,6 +1,6 @@
 // Rolling Road 
 // (c) David Mills 2015
-// eve of first test release
+// Second day of tests...
 #include <FreqMeasure.h>
 
 // bug brake values still sent when road speed = 0;
@@ -28,12 +28,13 @@ float previousfrequency = 0;
 
 //control booleans
 boolean controllingroad = true;
+int roadenable = 0;       //multiplier for the analog writes.
 
 // Function protoypes
 int getPOTaverage(void);
 int getFREQaverage(void);
 void debugBlink(const int pin, unsigned int flashcount);
-
+float FreqToMPH(float freq);
 
 // PWM Setup - may need tweeking in the field.
 const unsigned int PWM_F = 50;
@@ -57,6 +58,7 @@ void setup()
 
 void loop()
 {
+  start:
  // Car will be up to speed before the pot is set to provide some drag on the road. 
  // Driver brings the car up to speed then adjusts the pot until they feel some bite.
  // At this point it's up to this code to keep the road at this speed by providing more
@@ -84,7 +86,14 @@ void loop()
 //debugBlink(READYpin,2);
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
-
+if (getFREQaverage(2) < 10)
+   roadenable = 0;
+else
+   roadenable = 1;
+   
+if(!roadenable)
+     goto start;
+   
 while (POTaverage < 100)
 {
  POTaverage = getPOTaverage();
@@ -100,14 +109,14 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  POTaverage = getPOTaverage();
  Serial.print("POT Average: ");
  Serial.println(POTaverage, DEC);
- analogWrite(BRAKEpin,POTaverage + PWM_extra);  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
+ analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
 }
 
 //debugBlink(READYpin,4);
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
 
-basefrequency = getFREQaverage(5);  // take 20 samples
+basefrequency = getFREQaverage(5);  // take 5 samples
 //debugBlink(READYpin,6);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
@@ -129,7 +138,7 @@ while (controllingroad)
   currentfrequency = getFREQaverage(10);
   if (currentfrequency > basefrequency)       // road going faster than it was...
     {
-      analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // longer pulses
+      analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
       if (currentfrequency > previousfrequency) //still getting faster, so increase the PWM ontime.
          {
            PWM_extra+=1;    
@@ -140,7 +149,7 @@ while (controllingroad)
          {
            //if (PWM_extra > 10)
               PWM_extra-=1;
-           analogWrite(BRAKEpin,(POTaverage + PWM_extra));   // redule pulse length a bit
+           analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // redule pulse length a bit
          }  
       digitalWriteFast(LEDpin, HIGH);         // set the LED on
       previousfrequency = currentfrequency;
@@ -149,7 +158,7 @@ while (controllingroad)
   {
    Serial.print("Road speed normal, PWM value ");
    Serial.println(POTaverage, DEC);
-    analogWrite(BRAKEpin,POTaverage);        // standard pulses
+    analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
     digitalWriteFast(LEDpin, LOW);           // set the LED on
     PWM_extra = 0;                           // reset the PWM extra length to something low
   }
@@ -157,6 +166,7 @@ while (controllingroad)
 
 // no longer controlling the road, the speedpot has changed, so we need new frequncy values
 digitalWriteFast(READYpin, LOW);    // set the READY LED off
+
 
 // loop back to start
 }
@@ -222,4 +232,12 @@ void debugBlink(const int pin, unsigned int flashcount)
     delay(1000);
   }
   digitalWriteFast(pin, LOW);    // set the LED off when we finish
+}
+
+float FreqToMPH(float freq)
+{
+  // 60Hz on a roller diamter of 50cms is 1.57 m/s
+  // 1.57 m/s = 3.512 MPH
+  
+  return (freq/60) * 3.512;
 }
