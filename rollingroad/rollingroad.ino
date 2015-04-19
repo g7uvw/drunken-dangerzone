@@ -26,6 +26,11 @@ float basefrequency = 0;
 float currentfrequency = 0;
 float previousfrequency = 0;
 
+//speed stuff
+float basespeed = 0;
+float currentspeed = 0;
+float previousspeed = 0;
+
 //control booleans
 boolean controllingroad = true;
 int roadenable = 0;       //multiplier for the analog writes.
@@ -86,6 +91,7 @@ void loop()
 //debugBlink(READYpin,2);
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((POTaverage+10)-(POTaverage-10)))
 //while(!(unsigned) (POTaverage-(POTaverage-10)) <= ((oldPOTaverage+10)-(oldPOTaverage-10)))
+
 if (getFREQaverage(2) < 10)
    roadenable = 0;
 else
@@ -117,6 +123,9 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
 // get a baseline frequency (speed)
 
 basefrequency = getFREQaverage(5);  // take 5 samples
+basespeed = FreqToMPH(basefrequency);
+ Serial.print("Speed: ");
+ Serial.println(basespeed, 3);
 //debugBlink(READYpin,6);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
@@ -135,24 +144,24 @@ while (controllingroad)
       Serial.println(POTaverage,DEC);
     }
   oldPOTaverage = POTaverage;
-  currentfrequency = getFREQaverage(10);
-  if (currentfrequency > basefrequency)       // road going faster than it was...
+  currentspeed = FreqToMPH(getFREQaverage(10));
+  if (currentspeed > (basespeed+1))       // road going faster than it was...
     {
       analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
-      if (currentfrequency > previousfrequency) //still getting faster, so increase the PWM ontime.
+      if (currentspeed > previousspeed) //still getting faster, so increase the PWM ontime.
          {
            PWM_extra+=1;    
            Serial.print("Road speeding up, setting PWM to ");
            Serial.println(POTaverage + PWM_extra, DEC);
          }
-      if  (currentfrequency < previousfrequency)    // still faster than base freq, but slowing down
+      if  (currentspeed < (previousspeed-1))    // still faster than base freq, but slowing down
          {
            //if (PWM_extra > 10)
               PWM_extra-=1;
            analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // redule pulse length a bit
          }  
       digitalWriteFast(LEDpin, HIGH);         // set the LED on
-      previousfrequency = currentfrequency;
+      previousspeed = currentspeed;
     }
   else
   {
