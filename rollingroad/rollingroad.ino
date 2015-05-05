@@ -1,14 +1,15 @@
 // Rolling Road 
 // (c) David Mills 2015
-// Second day of tests...
-#include <FreqMeasure.h>
+// This version uses PID control
 
+#include <FreqMeasure.h>
+#include <PID_v1.h>
 // bug brake values still sent when road speed = 0;
 
 
 // Pin mappings 
 const int LEDpin = 13;
-const int BRAKEpin = 23;
+const int BRAKEpin = A14;
 const int READYpin = 22;
 const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
 
@@ -35,6 +36,14 @@ float previousspeed = 0;
 boolean controllingroad = true;
 int roadenable = 0;       //multiplier for the analog writes.
 
+// PID stuff
+//Define Variables we'll be connecting to
+double Output;
+
+//Specify the links and initial tuning parameters
+PID roadPID(&currentspeed, &Output, &basespeed,2,5,1, DIRECT);
+
+
 // Function protoypes
 int getPOTaverage(void);
 int getFREQaverage(void);
@@ -43,7 +52,6 @@ float FreqToMPH(float freq);
 
 // PWM Setup - may need tweeking in the field.
 const unsigned int PWM_F = 50;
-//const unsigned int PWM_F = 46875; // too fast for SCR driver brick
 int PWM_extra = 10;
 
 
@@ -71,7 +79,6 @@ void loop()
  
  // read the pot & wait for it to become stable (value doesn't change by more than +/- 10)
  // apply braking too, as that's what the driver will detected when setting the pot
-
 
 	
 // quick in range code from : https://stackoverflow.com/questions/3964017/checking-if-integer-falls-in-range-using-only-operator
@@ -118,21 +125,19 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
 }
 
-//debugBlink(READYpin,4);
+
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
 
 basefrequency = getFREQaverage(5);  // take 5 samples
 basespeed = FreqToMPH(basefrequency);
- Serial.print("Speed: ");
- Serial.println(basespeed, 3);
-//debugBlink(READYpin,6);
+Serial.print("Speed: ");
+Serial.println(basespeed, 3);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
 
 while (controllingroad)
 {
-  delay(100);
   POTaverage = getPOTaverage();              // read pot
   if ((POTaverage < (oldPOTaverage - 5)) || (  POTaverage > (oldPOTaverage + 5) ))    // pot has been changed, probably going to change car speed, need to recalibrate
     {
