@@ -28,8 +28,8 @@ float currentfrequency = 0;
 float previousfrequency = 0;
 
 //speed stuff
-float basespeed = 0;
-float currentspeed = 0;
+double basespeed = 0;
+double currentspeed = 0;
 float previousspeed = 0;
 
 //control booleans
@@ -51,7 +51,6 @@ void debugBlink(const int pin, unsigned int flashcount);
 float FreqToMPH(float freq);
 
 // PWM Setup - may need tweeking in the field.
-const unsigned int PWM_F = 50;
 int PWM_extra = 10;
 
 
@@ -59,14 +58,13 @@ void setup()
 {
  Serial.begin(9600);
  Serial.println("Starting Rolling Road");
- analogWriteResolution(10);          // 16, was 10 bit PWM resolution (0 - 1023)
- analogWriteFrequency(BRAKEpin,PWM_F);   
-//pinMode(3,INPUT); 
+ analogWriteResolution(10);          // 16, was 10 bit PWM resolution (0 - 1023) 
  FreqMeasure.begin();                // start measuring the speed pulses
  pinMode(LEDpin, OUTPUT);            // LED setup
  pinMode(READYpin,OUTPUT);
  
-
+ roadPID.SetOutputLimits(0,1023);
+ roadPID.SetSampleTime(10);  //every 10ms where possible. 
 }
 
 void loop()
@@ -150,32 +148,9 @@ while (controllingroad)
     }
   oldPOTaverage = POTaverage;
   currentspeed = FreqToMPH(getFREQaverage(10));
-  if (currentspeed > (basespeed+1))       // road going faster than it was...
-    {
-      analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
-      if (currentspeed > previousspeed) //still getting faster, so increase the PWM ontime.
-         {
-           PWM_extra+=1;    
-           Serial.print("Road speeding up, setting PWM to ");
-           Serial.println(POTaverage + PWM_extra, DEC);
-         }
-      if  (currentspeed < (previousspeed-1))    // still faster than base freq, but slowing down
-         {
-           //if (PWM_extra > 10)
-              PWM_extra-=1;
-           analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // redule pulse length a bit
-         }  
-      digitalWriteFast(LEDpin, HIGH);         // set the LED on
-      previousspeed = currentspeed;
-    }
-  else
-  {
-   Serial.print("Road speed normal, PWM value ");
-   Serial.println(POTaverage, DEC);
-    analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
-    digitalWriteFast(LEDpin, LOW);           // set the LED on
-    PWM_extra = 0;                           // reset the PWM extra length to something low
-  }
+  
+  roadPID.Compute();
+  analogWrite(BRAKEpin,Output); 
 }
 
 // no longer controlling the road, the speedpot has changed, so we need new frequncy values
