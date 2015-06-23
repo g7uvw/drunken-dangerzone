@@ -8,7 +8,7 @@
 
 // Pin mappings 
 const int LEDpin = 13;
-const int BRAKEpin = 23;
+const int BRAKEpin = A14; //was 23
 const int READYpin = 22;
 const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
 
@@ -52,7 +52,7 @@ void setup()
  Serial.begin(9600);
  Serial.println("Starting Rolling Road");
  analogWriteResolution(10);          // 16, was 10 bit PWM resolution (0 - 1023)
- analogWriteFrequency(BRAKEpin,PWM_F);   
+ //analogWriteFrequency(BRAKEpin,PWM_F);   
 //pinMode(3,INPUT); 
  FreqMeasure.begin();                // start measuring the speed pulses
  pinMode(LEDpin, OUTPUT);            // LED setup
@@ -145,6 +145,13 @@ while (controllingroad)
     }
   oldPOTaverage = POTaverage;
   currentspeed = FreqToMPH(getFREQaverage(10));
+  if (currentspeed < 5)
+  {
+    analogWrite(BRAKEpin,0);   // redule pulse length a bit
+    controllingroad = false;
+    goto start;
+  }
+    
   if (currentspeed > (basespeed+1))       // road going faster than it was...
     {
       analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
@@ -153,6 +160,8 @@ while (controllingroad)
            PWM_extra+=1;    
            Serial.print("Road speeding up, setting PWM to ");
            Serial.println(POTaverage + PWM_extra, DEC);
+           Serial.print("Speed MPH ");
+           Serial.println(currentspeed,DEC);
          }
       if  (currentspeed < (previousspeed-1))    // still faster than base freq, but slowing down
          {
@@ -167,7 +176,9 @@ while (controllingroad)
   {
    Serial.print("Road speed normal, PWM value ");
    Serial.println(POTaverage, DEC);
-    analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
+   Serial.print("Speed MPH ");
+   Serial.println(currentspeed,DEC);
+    analogWrite(BRAKEpin,roadenable * POTaverage-2);        // standard pulses
     digitalWriteFast(LEDpin, LOW);           // set the LED on
     PWM_extra = 0;                           // reset the PWM extra length to something low
   }
