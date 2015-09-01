@@ -21,6 +21,7 @@ BH1750 Sensor ( BH1750_Addr, CONT_HR_1);
 
 void setup()
 {
+  pinMode(LEDPIN, OUTPUT); 
   Wire.begin();
   rtc.begin();
   Serial.begin(9600);
@@ -32,6 +33,7 @@ void setup()
 
 void loop()
 {
+  digitalWrite(LEDPIN, HIGH); 
    DateTime now = rtc.now();
   char timebuffer[16];
   char filename[32];
@@ -49,7 +51,7 @@ void loop()
   dataString += timebuffer;
   dataString += ",";
   dataString += String(hh);
-
+  digitalWrite(LEDPIN, LOW); 
  
   // open the file. Reopening and closing each loop is inefficient,
   // but is easiest to implement and realiable for poweroff.
@@ -61,7 +63,8 @@ void loop()
   }
  // data = Sensor.read();
   Serial.println(hh,DEC);
-  delay (1000);
+  
+  delay (200);
   
 }
 
