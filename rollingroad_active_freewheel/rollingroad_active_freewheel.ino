@@ -1,6 +1,7 @@
 // Rolling Road 
 // (c) David Mills 2015
 // 28/8/2015 using this
+// 4/9/2015 adding in Freewheel control
 
 #include <FreqMeasure.h>
 //#include <Wire.h>
@@ -14,6 +15,7 @@ const int BRAKEpin = A14; //was 23
 const int READYpin = 22;
 const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
 const int TORQUEpin = 1; // Analog 1 (PIN 15 on Teensy 3.1)
+const int SPEEDpin = 3;
 
 // Braking POT variables
 int potval = 0, oldpotval = 0;
@@ -42,7 +44,10 @@ float previousspeed = 0;
 
 //control booleans
 boolean controllingroad = true;
+boolean freewheeling = false;  // speed, ok but no torque
+boolean hadtorque = false;     // only true when we've been controlling road and then switched to freewheel (torque goes away)
 int roadenable = 0;       //multiplier for the analog writes.
+
 
 // data structure
 struct data_t{
@@ -79,9 +84,8 @@ void setup()
  Serial.println("Starting Rolling Road");
  analogWriteResolution(10);          //10 bit PWM resolution (0 - 1023)
  analogWriteFrequency(BRAKEpin,PWM_F);   
-pinMode(3,INPUT); 
+ pinMode(SPEEDpin,INPUT); 
  FreqMeasure.begin();                // start measuring the speed pulses
- //FreqMeasure2.begin();
  pinMode(LEDpin, OUTPUT);            // LED setup
  pinMode(READYpin,OUTPUT);
  
@@ -126,8 +130,8 @@ else
    
 if(!roadenable)
 {
-//we do the calibration stuff here.
-     // read the Torque ADC channel and transmit the data.
+  //we do the calibration stuff here.
+  // read the Torque ADC channel and transmit the data.
   TORQUEaverage = getTORQUEaverage();
   data_packet.calibrating = 1;
   data_packet.recording = 0;
@@ -136,14 +140,17 @@ if(!roadenable)
   data_packet.torque = TORQUEaverage;
   data_packet.speedo = 0;
   data_packet.revs = 0;
+  Serial_Update(); 
   
-  char pBuffer[uBufSize];
+ /*char pBuffer[uBufSize];
  memcpy(pBuffer, &data_packet, uBufSize);
  
  for(int i = 0; i<uBufSize;i++) 
  {
    Serial.print(pBuffer[i]);
  }
+ */
+ 
  Serial.println("calibrating");
   delay(100);   
   goto start;
@@ -151,7 +158,6 @@ if(!roadenable)
    
 while (POTaverage < 50)
 {
-  
   basefrequency = getFREQaverage(5);  // take 5 samples
   basespeed = FreqToMPH(basefrequency);
   data_packet.calibrating = 0;
@@ -165,9 +171,9 @@ while (POTaverage < 50)
   data_packet.speedo = (uint16_t)basespeed;
   Serial_Update();
   
- POTaverage = getPOTaverage();
- Serial.print("Waiting for car to get up to speed - POT Average: ");
- Serial.println(POTaverage, DEC);
+  POTaverage = getPOTaverage();
+  Serial.print("Waiting for car to get up to speed - POT Average: ");
+  Serial.println(POTaverage, DEC);
 }
 
 // I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
@@ -175,14 +181,14 @@ while (POTaverage < 50)
 // uncomment serial.print lines for debugging this.
 while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10))) 
 {
- basefrequency = getFREQaverage(5);  // take 5 samples
- basespeed = FreqToMPH(basefrequency); 
- data_packet.speedo = (uint16_t)basespeed; 
- Serial_Update(); 
- POTaverage = getPOTaverage();
- Serial.print("POT Average: ");
- Serial.println(POTaverage, DEC);
- analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
+  basefrequency = getFREQaverage(5);  // take 5 samples
+  basespeed = FreqToMPH(basefrequency); 
+  data_packet.speedo = (uint16_t)basespeed; 
+  Serial_Update(); 
+  POTaverage = getPOTaverage();
+  Serial.print("POT Average: ");
+  Serial.println(POTaverage, DEC);
+  analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
 }
 
 //debugBlink(READYpin,4);
