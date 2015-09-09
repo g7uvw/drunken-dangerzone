@@ -44,7 +44,7 @@ float previousspeed = 0;
 
 //control booleans
 boolean controllingroad = true;
-boolean freewheeling = false;  // speed, ok but no torque
+boolean freewheeling = true;  // speed, ok but no torque
 boolean hadtorque = false;     // only true when we've been controlling road and then switched to freewheel (torque goes away)
 int roadenable = 0;       //multiplier for the analog writes.
 
@@ -323,6 +323,10 @@ int getTORQUEaverage(void)
       ta += analogRead(TORQUEpin);
   }
   ta /= 10;
+  
+  if (ta > 5) 
+    freewheel = false;
+    
   return ta;
 }
 
