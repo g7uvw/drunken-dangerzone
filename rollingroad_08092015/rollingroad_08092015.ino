@@ -2,7 +2,8 @@
 // (c) David Mills 2015
 // 28/8/2015 using this
 //fuck me it works!
-
+// tested working on bench on 15/09/2015
+// sent to CCK on 16/09/2015
 
 #include <FreqMeasure.h>
 //#include <Wire.h>
@@ -298,7 +299,7 @@ while (controllingroad)
  data_packet.highrange = 1;      
  data_packet.torque = TORQUEaverage;
  data_packet.speedo = (uint16_t) currentspeed;
- data_packet.revs = (uint16_t) 6;
+ data_packet.revs = (uint16_t) currentfrequency;
 
  Serial_Update();
  //Serial.println("Update display"); 
@@ -327,7 +328,7 @@ void Serial_Update()
  data_packet.highrange = 1;      
  data_packet.torque = TORQUEaverage;
  data_packet.speedo = (uint16_t) currentspeed;
- data_packet.revs = (uint16_t) 6;
+ data_packet.revs = (uint16_t) currentfrequency;
  char pBuffer[uBufSize];
  memcpy(pBuffer, &data_packet, uBufSize);
  
@@ -335,7 +336,8 @@ void Serial_Update()
  {
    Serial.print(pBuffer[i]);
  } 
- 
+ //Serial.println();
+ delay(10);
 }
 
 int getTORQUEaverage(void)
@@ -394,6 +396,7 @@ int getFREQaverage(int samples)
   }
 
     int average = FreqMeasure.countToFrequency(sum / samples);
+    currentfrequency = average;
     return average;
 }
 
@@ -414,7 +417,6 @@ float FreqToMPH(float freq)
 {
   // 60Hz on a roller diamter of 50cms is 1.57 m/s
   // 1.57 m/s = 3.512 MPH
-  
   return (freq/60) * 3.512;
 }
 
