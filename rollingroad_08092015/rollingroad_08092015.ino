@@ -6,6 +6,12 @@
 // sent to CCK on 16/09/2015
 
 //this is the oe we'e using on 22/09/2015
+// seems to work first time, but jerks on subsequent runs after a full stop. Seems to happen if the chip isn't reset
+// added a control bool to see if the road has ever loaded up - if so and we're back at low pot and low speed, then 
+// we've probably had a run already and then gone full stop.
+
+// basic testing shows this reset on zero isn't working. Test on bench again.
+
 
 
 #include <FreqMeasure.h>
@@ -49,6 +55,7 @@ float previousspeed = 0;
 //control booleans
 boolean controllingroad = true;
 int roadenable = 0;       //multiplier for the analog writes.
+boolean once_worked = 0;  //if we've ever loaded up, this is true. If true at start, then we're reset and need to zero everything
 
 // data structure
 struct data_t{
@@ -132,6 +139,27 @@ else
    
 if(!roadenable)
 {
+  if (once_worked)  //zero eveything.
+  {
+    POTindex = 0;                  // the index of the current reading
+    POTtotal = 0;                  // the running total
+    POTaverage = 0;                // the average
+    oldPOTaverage = 0;             // previous average
+    TORQUEaverage = 0;
+
+// frequency stuff
+    basefrequency = 0;
+    currentfrequency = 0;
+    previousfrequency = 0;
+
+  //speed stuff
+    basespeed = 0;
+    currentspeed = 0;
+    previousspeed = 0;
+    
+    PWM_extra = 0;
+  }
+  
 //we do the calibration stuff here.
      // read the Torque ADC channel and transmit the data.
   TORQUEaverage = getTORQUEaverage();
@@ -207,6 +235,7 @@ Serial.println("back at top");
 //debugBlink(READYpin,6);
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
+once_worked = true;
 
 if (digitalRead(6))
     data_packet.recording = 0;
@@ -281,7 +310,7 @@ while (controllingroad)
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
         PWM_extra-=1;
-        analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling.
+        analogWrite(BRAKEpin,-1);   // turn brake off - we're freewheeling.
         //Serial.println("freewheel");
       }
     
