@@ -5,6 +5,9 @@
 // tested working on bench on 15/09/2015
 // sent to CCK on 16/09/2015
 
+//this is the oe we'e using on 22/09/2015
+
+
 #include <FreqMeasure.h>
 //#include <Wire.h>
 
@@ -152,7 +155,7 @@ if(!roadenable)
   goto start;
 }
    
-while (POTaverage < 50)
+while (POTaverage < 50) 
 {
   
   basefrequency = getFREQaverage(5);  // take 5 samples
@@ -278,7 +281,7 @@ while (controllingroad)
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
         PWM_extra-=1;
-        analogWrite(BRAKEpin,0);   // reduce pulse length a bit
+        analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling.
         //Serial.println("freewheel");
       }
     
