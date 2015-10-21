@@ -158,6 +158,8 @@ if(!roadenable)
     previousspeed = 0;
     
     PWM_extra = 0;
+    
+    analogWrite(BRAKEpin,0); 
   }
   
 //we do the calibration stuff here.
