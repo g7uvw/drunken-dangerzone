@@ -12,7 +12,8 @@
 
 // basic testing shows this reset on zero isn't working. Test on bench again.
 
-
+#define NO_BINARY_OUTPUT true
+#define DEBUGGING true
 
 #include <FreqMeasure.h>
 //#include <Wire.h>
@@ -202,8 +203,13 @@ while (POTaverage < 50)
   Serial_Update();
   
  POTaverage = getPOTaverage();
- Serial.print("Waiting for car to get up to speed - POT Average: ");
- Serial.println(POTaverage, DEC);
+ 
+ if (DEBUGGING)
+ {
+   Serial.print("Waiting for car to get up to speed - POT Average: ");
+   Serial.println(POTaverage, DEC);
+  }
+
 }
 
 // I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
@@ -216,12 +222,17 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  data_packet.speedo = (uint16_t)basespeed; 
  Serial_Update(); 
  POTaverage = getPOTaverage();
+ analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
+ 
+ if (DEBUGGING)
+ {
  Serial.print("POT Average: ");
  Serial.println(POTaverage, DEC);
- analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
+ }
+ 
 }
 
-//debugBlink(READYpin,4);
+
 // when we make it here, the driver should have finished setting pot for his choice of speed
 // get a baseline frequency (speed)
 
@@ -231,13 +242,17 @@ data_packet.speedo = (uint16_t)basespeed;
 TORQUEaverage = getTORQUEaverage();
 data_packet.torque = TORQUEaverage;
 Serial_Update();
-Serial.println("back at top");
- Serial.print("Speed: ");
- Serial.println(basespeed, 3);
-//debugBlink(READYpin,6);
+
 digitalWriteFast(READYpin, HIGH);    // set the READY LED on
 controllingroad = true;
 once_worked = true;
+
+if (DEBUGGING)
+{
+ Serial.println("back at top");
+ Serial.print("Speed: ");
+ Serial.println(basespeed, 3);
+}
 
 if (digitalRead(6))
     data_packet.recording = 0;
@@ -251,23 +266,34 @@ while (controllingroad)
   if ((POTaverage < (oldPOTaverage - 5)) || (  POTaverage > (oldPOTaverage + 5) ))    // pot has been changed, probably going to change car speed, need to recalibrate
     {
       controllingroad = false;
-      Serial.println("Pot Value changed");
-      Serial.print("OldPOT Average: ");
-      Serial.print(oldPOTaverage,DEC);
-      Serial.print("POT Average: ");
-      Serial.println(POTaverage,DEC);
       basefrequency = getFREQaverage(5);  // take 5 samples
       basespeed = FreqToMPH(basefrequency);
+      if (DEBUGGING)
+      {
+        Serial.println("Pot Value changed");
+        Serial.print("OldPOT Average: ");
+        Serial.print(oldPOTaverage,DEC);
+        Serial.print("POT Average: ");
+        Serial.println(POTaverage,DEC);
+      }
     }
+    
   oldPOTaverage = POTaverage;
   currentspeed = FreqToMPH(getFREQaverage(10));
   TORQUEaverage = getTORQUEaverage();
+  
   data_packet.torque = TORQUEaverage;
+  
   if (currentspeed < 5) //was 5
   {
-    Serial.println("Too slow");
-    analogWrite(BRAKEpin,0);   // reduce pulse length a bit
+    analogWrite(BRAKEpin,0);   // Brake off
     controllingroad = false;
+    
+    if (DEBUGGING)
+    {
+      Serial.println("Road speed below 5 MPH");
+    }
+    
     goto start;
   }
     
@@ -278,12 +304,16 @@ while (controllingroad)
          {
            PWM_extra+=100; 
            data_packet.speedo = (uint16_t)currentspeed;
-           Serial_Update();   
-           Serial.print("Road speeding up, setting PWM to ");
-           Serial.println(POTaverage + PWM_extra, DEC);
-           Serial.print("Speed MPH ");
-           Serial.println(currentspeed,DEC);
+           Serial_Update();
+        if (DEBUGGING)
+           {   
+             Serial.print("Road speeding up, setting PWM to ");
+             Serial.println(POTaverage + PWM_extra, DEC);
+             Serial.print("Speed MPH ");
+             Serial.println(currentspeed,DEC);
+           }
          }
+         
       //if  (currentspeed < (previousspeed-0.05))    // still faster than base freq, but slowing down
       //   {
       //     //if (PWM_extra > 10)
@@ -304,6 +334,11 @@ while (controllingroad)
         Serial_Update();  
         analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
         PWM_extra = 0;
+        if (DEBUGGING)
+        {
+          Serial.print("Constant speed MPH ");
+          Serial.println(currentspeed,DEC);
+        }
       }
       
       
@@ -312,23 +347,14 @@ while (controllingroad)
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
         PWM_extra-=1;
-        analogWrite(BRAKEpin,-1);   // turn brake off - we're freewheeling.
-        //Serial.println("freewheel");
+        analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling. was -1, might have been an issue
+        
+        if (DEBUGGING)
+        {
+          Serial.println("Freewheeling");
+        }
       }
     
-  //else
-  //{
-  // Serial.print("Road speed normal, PWM value ");
-  // Serial.println(POTaverage, DEC);
-  // Serial.print("Speed MPH ");
-  // Serial.println(currentspeed,DEC);
-  // data_packet.speedo = (uint16_t)currentspeed;
-  // Serial_Update();  
-  //  analogWrite(BRAKEpin,roadenable * POTaverage-2);        // standard pulses
-  //  digitalWriteFast(LEDpin, LOW);           // set the LED on
-  //  PWM_extra = 0;                           // reset the PWM extra length to something low
- // }
-  
  data_packet.calibrating = 0;
  data_packet.highrange = 1;      
  data_packet.torque = TORQUEaverage;
@@ -336,21 +362,17 @@ while (controllingroad)
  data_packet.revs = (uint16_t) currentfrequency;
 
  Serial_Update();
- //Serial.println("Update display"); 
- //char pBuffer[uBufSize];
-// memcpy(pBuffer, &data_packet, uBufSize);
  
- //for(int i = 0; i<uBufSize;i++) 
-// {
-//   Serial.print(pBuffer[i]);
-// }   
 }
 
 // no longer controlling the road, the speedpot has changed, so we need new frequncy values
 digitalWriteFast(READYpin, LOW);    // set the READY LED off
 
  Serial_Update();
- //Serial.println("Not controlling");
+ if (DEBUGGING)
+ {
+   Serial.println("Not controlling road");
+ }
  
 
 // loop back to start
@@ -358,20 +380,23 @@ digitalWriteFast(READYpin, LOW);    // set the READY LED off
 
 void Serial_Update()
 {
- data_packet.calibrating = 0;
- data_packet.highrange = 1;      
- data_packet.torque = TORQUEaverage;
- data_packet.speedo = (uint16_t) currentspeed;
- data_packet.revs = (uint16_t) currentfrequency;
- char pBuffer[uBufSize];
- memcpy(pBuffer, &data_packet, uBufSize);
+  if (!NO_BINARY_OUTPUT)
+  {
+   data_packet.calibrating = 0;
+   data_packet.highrange = 1;      
+   data_packet.torque = TORQUEaverage;
+   data_packet.speedo = (uint16_t) currentspeed;
+   data_packet.revs = (uint16_t) currentfrequency;
+   char pBuffer[uBufSize];
+   memcpy(pBuffer, &data_packet, uBufSize);
  
- for(int i = 0; i<uBufSize;i++) 
- {
-   Serial.print(pBuffer[i]);
- } 
- //Serial.println();
- delay(10);
+   for(int i = 0; i<uBufSize;i++) 
+   {
+     Serial.print(pBuffer[i]);
+   } 
+   //Serial.println();
+   delay(10);
+  }
 }
 
 int getTORQUEaverage(void)
