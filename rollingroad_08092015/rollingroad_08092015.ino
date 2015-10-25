@@ -261,6 +261,14 @@ else
     
 while (controllingroad)
 {
+  if (DEBUGGING)
+  {
+    delay(1000);
+    Serial.print("Controlling road, PWM = ");
+    Serial.println(POTaverage + PWM_extra, DEC);
+    Serial.println("------------");
+  }
+  
   delay(10); //was 100
   POTaverage = getPOTaverage();              // read pot
   if ((POTaverage < (oldPOTaverage - 5)) || (  POTaverage > (oldPOTaverage + 5) ))    // pot has been changed, probably going to change car speed, need to recalibrate
@@ -268,6 +276,7 @@ while (controllingroad)
       controllingroad = false;
       basefrequency = getFREQaverage(5);  // take 5 samples
       basespeed = FreqToMPH(basefrequency);
+      analogWrite(BRAKEpin,roadenable * (POTaverage));   
       if (DEBUGGING)
       {
         Serial.println("Pot Value changed");
@@ -309,8 +318,10 @@ while (controllingroad)
            {   
              Serial.print("Road speeding up, setting PWM to ");
              Serial.println(POTaverage + PWM_extra, DEC);
-             Serial.print("Speed MPH ");
+             Serial.print("Current Speed MPH ");
              Serial.println(currentspeed,DEC);
+             Serial.print("Previous Speed MPH ");
+             Serial.println(previousspeed,DEC);
            }
          }
          
@@ -323,7 +334,7 @@ while (controllingroad)
       //      analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // reduce pulse length a bit
       //   }  
       //digitalWriteFast(LEDpin, HIGH);         // set the LED on
-      previousspeed = (uint16_t)currentspeed;
+      previousspeed = currentspeed;
     }
       
       // we're pretty much at the base speed +/- a little bit
@@ -338,6 +349,8 @@ while (controllingroad)
         {
           Serial.print("Constant speed MPH ");
           Serial.println(currentspeed,DEC);
+          Serial.print("PWM = ");
+          Serial.println(roadenable * POTaverage, DEC);
         }
       }
       
@@ -476,6 +489,6 @@ float FreqToMPH(float freq)
 {
   // 60Hz on a roller diamter of 50cms is 1.57 m/s
   // 1.57 m/s = 3.512 MPH
-  return (freq/60) * 3.512;
+  return  (freq/60) * 3.512;
 }
 
