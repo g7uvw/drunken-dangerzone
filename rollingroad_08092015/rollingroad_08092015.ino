@@ -12,8 +12,8 @@
 
 // basic testing shows this reset on zero isn't working. Test on bench again.
 
-#define NO_BINARY_OUTPUT true
-#define DEBUGGING true
+#define NO_BINARY_OUTPUT false
+#define DEBUGGING false
 
 #include <FreqMeasure.h>
 //#include <Wire.h>
@@ -81,6 +81,8 @@ int getFREQaverage(void);
 void debugBlink(const int pin, unsigned int flashcount);
 float FreqToMPH(float freq);
 void Serial_Update();
+void setBrake(int brake);
+
 
 // PWM Setup - may need tweeking in the field.
 const unsigned int PWM_F = 50;
@@ -161,7 +163,8 @@ if(!roadenable)
     
     PWM_extra = 0;
     
-    analogWrite(BRAKEpin,0); 
+    setBrake(0);
+    //analogWrite(BRAKEpin,0); 
   }
   
 //we do the calibration stuff here.
@@ -225,7 +228,9 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  data_packet.speedo = (uint16_t)basespeed; 
  Serial_Update(); 
  POTaverage = getPOTaverage();
- analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
+ 
+ setBrake(roadenable *(POTaverage + PWM_extra));
+ //analogWrite(BRAKEpin,roadenable *(POTaverage + PWM_extra));  // Add in the extra so there's no sudden jump if the pot get changed when the road is braking
  
  if (DEBUGGING)
  {
@@ -264,11 +269,21 @@ else
     
 while (controllingroad)
 {
+  
+  if (!freewheel)
+  {
+    setBrake(POTaverage);
+    //analogWrite(BRAKEpin,POTaverage);  
+  }
+  
+  
   if (DEBUGGING)
   {
     delay(1000);
     Serial.print("Controlling road, PWM = ");
     Serial.println(POTaverage + PWM_extra, DEC);
+    Serial.print("Current Speed MPH ");
+    Serial.println(currentspeed,2);
     Serial.println("------------");
   }
   
@@ -279,7 +294,10 @@ while (controllingroad)
       controllingroad = false;
       basefrequency = getFREQaverage(5);  // take 5 samples
       basespeed = FreqToMPH(basefrequency);
-      analogWrite(BRAKEpin,roadenable * (POTaverage));   
+      
+      setBrake(roadenable * (POTaverage));
+      
+      //analogWrite(BRAKEpin,roadenable * (POTaverage));   
       if (DEBUGGING)
       {
         Serial.println("Pot Value changed");
@@ -299,7 +317,8 @@ while (controllingroad)
   
   if (currentspeed < 5) //was 5
   {
-    analogWrite(BRAKEpin,0);   // Brake off
+    setBrake(0);
+    //analogWrite(BRAKEpin,0);   // Brake off
     controllingroad = false;
     
     if (DEBUGGING)
@@ -312,8 +331,17 @@ while (controllingroad)
     
   if (currentspeed > (basespeed+0.1))       // road going faster than it was...
     {
+      freewheel = false;
       PWM_extra+=100; 
-      analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
+      
+      //check it isn't pointlessly growing
+      if (PWM_extra > 1024)
+        {
+          PWM_extra = 1024;
+        }
+      
+      setBrake(roadenable * (POTaverage + PWM_extra));  
+      //analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
       if (currentspeed > previousspeed) //still getting faster, so increase the PWM ontime.
          {
            //PWM_extra+=100; 
@@ -321,8 +349,8 @@ while (controllingroad)
            Serial_Update();
         if (DEBUGGING)
            {   
-             Serial.print("Road speeding up, setting PWM to ");
-             Serial.println(POTaverage + PWM_extra, DEC);
+             Serial.println("Road speeding up");
+             //Serial.println(POTaverage + PWM_extra, DEC);
              Serial.print("Current Speed MPH ");
              Serial.println(currentspeed,2);
              Serial.print("Previous Speed MPH ");
@@ -349,9 +377,12 @@ while (controllingroad)
       
   //if (!(currentspeed < (basespeed - 0.1)) || (currentspeed > (basespeed + 0.05) ))
       {
+        freewheel = false;
         data_packet.speedo = (uint16_t)currentspeed;
-        Serial_Update();  
-        analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
+        Serial_Update();
+      
+        setBrake(roadenable * POTaverage);  
+       // analogWrite(BRAKEpin,roadenable * POTaverage);        // standard pulses
         PWM_extra = 0;
         if (DEBUGGING)
         {
@@ -359,8 +390,8 @@ while (controllingroad)
           Serial.println(basespeed,2);
           Serial.print("Constant speed MPH ");
           Serial.println(currentspeed,2);
-          Serial.print("PWM = ");
-          Serial.println(roadenable * POTaverage, DEC);
+          //Serial.print("PWM = ");
+          //Serial.println(roadenable * POTaverage, DEC);
         }
       }
       
@@ -368,10 +399,12 @@ while (controllingroad)
   if (currentspeed < basespeed - 1)   // 1 mph less than base speed
  // if (currentspeed < previousspeed - 1)   // 1 mph less than before
       {
+        freewheel = true;
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
         PWM_extra=0;
-        analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling. was -1, might have been an issue
+        setBrake(0);
+        //analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling. was -1, might have been an issue
         
         if (DEBUGGING)
         {
@@ -503,3 +536,12 @@ float FreqToMPH(float freq)
   return  (freq/60) * 3.512;
 }
 
+void setBrake(int brake)
+{
+  analogWrite(BRAKEpin,brake);   
+  if (DEBUGGING)
+           {   
+             Serial.print("setBrake: Setting PWM to ");
+             Serial.println(brake, DEC);
+           }
+}
