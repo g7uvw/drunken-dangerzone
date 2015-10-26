@@ -57,6 +57,7 @@ float previousspeed = 0;
 boolean controllingroad = true;
 int roadenable = 0;       //multiplier for the analog writes.
 boolean once_worked = 0;  //if we've ever loaded up, this is true. If true at start, then we're reset and need to zero everything
+boolean freewheel = 0;
 
 // data structure
 struct data_t{
@@ -206,8 +207,10 @@ while (POTaverage < 50)
  
  if (DEBUGGING)
  {
-   Serial.print("Waiting for car to get up to speed - POT Average: ");
-   Serial.println(POTaverage, DEC);
+   Serial.print("Waiting for car to get up to speed ");
+   Serial.println(basespeed,2);
+   Serial.print("POT average ");
+   Serial.println(POTaverage, 1);
   }
 
 }
@@ -227,7 +230,7 @@ while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
  if (DEBUGGING)
  {
  Serial.print("POT Average: ");
- Serial.println(POTaverage, DEC);
+ Serial.println(POTaverage, 2);
  }
  
 }
@@ -281,14 +284,15 @@ while (controllingroad)
       {
         Serial.println("Pot Value changed");
         Serial.print("OldPOT Average: ");
-        Serial.print(oldPOTaverage,DEC);
+        Serial.print(oldPOTaverage,2);
         Serial.print("POT Average: ");
-        Serial.println(POTaverage,DEC);
+        Serial.println(POTaverage,2);
       }
     }
     
   oldPOTaverage = POTaverage;
-  currentspeed = FreqToMPH(getFREQaverage(10));
+  previousspeed = currentspeed;    //save old speed
+  currentspeed = FreqToMPH(getFREQaverage(10));  //get new speed
   TORQUEaverage = getTORQUEaverage();
   
   data_packet.torque = TORQUEaverage;
@@ -308,10 +312,11 @@ while (controllingroad)
     
   if (currentspeed > (basespeed+0.1))       // road going faster than it was...
     {
+      PWM_extra+=100; 
       analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // longer pulses
       if (currentspeed > previousspeed) //still getting faster, so increase the PWM ontime.
          {
-           PWM_extra+=100; 
+           //PWM_extra+=100; 
            data_packet.speedo = (uint16_t)currentspeed;
            Serial_Update();
         if (DEBUGGING)
@@ -319,9 +324,9 @@ while (controllingroad)
              Serial.print("Road speeding up, setting PWM to ");
              Serial.println(POTaverage + PWM_extra, DEC);
              Serial.print("Current Speed MPH ");
-             Serial.println(currentspeed,DEC);
+             Serial.println(currentspeed,2);
              Serial.print("Previous Speed MPH ");
-             Serial.println(previousspeed,DEC);
+             Serial.println(previousspeed,2);
            }
          }
          
@@ -334,12 +339,15 @@ while (controllingroad)
       //      analogWrite(BRAKEpin,roadenable * (POTaverage + PWM_extra));   // reduce pulse length a bit
       //   }  
       //digitalWriteFast(LEDpin, HIGH);         // set the LED on
+      delay(1);
       previousspeed = currentspeed;
     }
       
       // we're pretty much at the base speed +/- a little bit
       // hold the brake where it was.
-  if ((currentspeed < (basespeed - 0.1)) || (currentspeed > (basespeed + 0.05) ))
+      if (currentspeed <= (basespeed + 0.05) && !(currentspeed < (basespeed - 0.1))) 
+      
+  //if (!(currentspeed < (basespeed - 0.1)) || (currentspeed > (basespeed + 0.05) ))
       {
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
@@ -347,8 +355,10 @@ while (controllingroad)
         PWM_extra = 0;
         if (DEBUGGING)
         {
+          Serial.print("Base speed MPH ");
+          Serial.println(basespeed,2);
           Serial.print("Constant speed MPH ");
-          Serial.println(currentspeed,DEC);
+          Serial.println(currentspeed,2);
           Serial.print("PWM = ");
           Serial.println(roadenable * POTaverage, DEC);
         }
@@ -356,10 +366,11 @@ while (controllingroad)
       
       
   if (currentspeed < basespeed - 1)   // 1 mph less than base speed
+ // if (currentspeed < previousspeed - 1)   // 1 mph less than before
       {
         data_packet.speedo = (uint16_t)currentspeed;
         Serial_Update();  
-        PWM_extra-=1;
+        PWM_extra=0;
         analogWrite(BRAKEpin,0);   // turn brake off - we're freewheeling. was -1, might have been an issue
         
         if (DEBUGGING)
