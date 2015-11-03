@@ -5,7 +5,7 @@
 // tested working on bench on 15/09/2015
 // sent to CCK on 16/09/2015
 
-//this is the oe we'e using on 22/09/2015
+//this is the one we'e using on 22/09/2015
 // seems to work first time, but jerks on subsequent runs after a full stop. Seems to happen if the chip isn't reset
 // added a control bool to see if the road has ever loaded up - if so and we're back at low pot and low speed, then 
 // we've probably had a run already and then gone full stop.
@@ -14,6 +14,12 @@
 
 // 28/10/15 - still an issue where if speed drops to around zero then comes back to basespeed, the PWM value is too high
 // looks like the base speed is being recalculated at the lower speed.
+
+// Do the brake val based on currentspeed - basespeed. may need to scale the value.
+// think of it as PLL or FLL and brake is the error val for correction.
+
+
+
 
 
 #define NO_BINARY_OUTPUT false
