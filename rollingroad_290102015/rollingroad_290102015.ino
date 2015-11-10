@@ -62,6 +62,7 @@ float previousfrequency = 0;
 float basespeed = 0;
 float currentspeed = 0;
 float previousspeed = 0;
+float speederror = 0;
 
 //control booleans
 boolean controllingroad = true;
@@ -350,7 +351,9 @@ while (controllingroad)
     
     goto start;
   }
-    
+  
+  speederror = currentspeed - basespeed;
+  
   if (currentspeed > (basespeed+0.5))       // road going faster than it was...
     {
       freewheel = false;
