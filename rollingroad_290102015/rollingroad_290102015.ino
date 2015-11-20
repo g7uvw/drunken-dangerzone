@@ -19,10 +19,10 @@
 // think of it as PLL or FLL and brake is the error val for correction.
 
 
-#define NO_BINARY_OUTPUT true
-#define DEBUGGING true
-
-#define SCALEFACTOR 100
+#define NO_BINARY_OUTPUT false
+#define DEBUGGING false
+//#define SCALEFACTOR 100
+#define SCALEFACTOR 1000
 
 #include <FreqMeasure.h>
 //#include <Wire.h>
@@ -192,13 +192,13 @@ start:
             Serial.print(pBuffer[i]);
         }
         Serial.println("calibrating");
-        delay(100);
+        //delay(100);
         goto start;
     }
     
-    while (POTaverage < 50)
+    while (POTaverage < 25)
     {
-        
+        setBrake(0);
         basefrequency = getFREQaverage(5);  // take 5 samples
         basespeed = FreqToMPH(basefrequency);
         data_packet.calibrating = 0;
@@ -206,9 +206,9 @@ start:
         data_packet.highrange = 1;      // non zero means Torque is set to high range
         data_packet.padding = 0;       // just to pad the stuct
         data_packet.torque = 0;         // from strain guage
-        data_packet.revs = 0;
-        data_packet.humidity = 78;
-        data_packet.pressure = 0;
+        data_packet.revs = (uint16_t)basefrequency;
+        data_packet.humidity = 63;
+        data_packet.pressure = 1000;
         data_packet.speedo = (uint16_t)basespeed;
         Serial_Update();
         
@@ -227,7 +227,7 @@ start:
     // I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
     // is in the range +/- 10 of what it started as. This can be tweeked in the final install.
     // uncomment serial.print lines for debugging this.
-    while (!(POTaverage <= POTaverage+10 && !(POTaverage < POTaverage-10)))
+    while (!(POTaverage <= POTaverage+3 && !(POTaverage < POTaverage-3)))
     {
         //if (!once_worked)
         //{
@@ -238,7 +238,7 @@ start:
         Serial_Update();
         POTaverage = getPOTaverage();
         
-        setBrake(roadenable *(POTaverage + PWM_extra));
+        setBrake(roadenable *POTaverage);
         
         if (DEBUGGING)
         {
@@ -288,6 +288,10 @@ start:
             setBrake(POTaverage + PWM_extra);
         }
         
+        if (freewheel)
+        {
+          setBrake(0);
+        }
         
         if (DEBUGGING)
         {
@@ -302,10 +306,12 @@ start:
             Serial.println("------------");
         }
         
-        delay(10);
+        //delay(10);
         
         POTaverage = getPOTaverage();              // read pot
-        if ((POTaverage < (oldPOTaverage - 5)) || (  POTaverage > (oldPOTaverage + 5) ))
+        //If you need it to include "min" and "max" in the range check, use:
+        // if (num <= max && !(num < min)) { // stuff to do }
+        if (!((POTaverage <= (oldPOTaverage + 2)) && !(  POTaverage < (oldPOTaverage - 2) )))
             // pot has been changed, probably going to change car speed, need to recalibrate
         {
             controllingroad = false;
@@ -313,6 +319,7 @@ start:
             basespeed = FreqToMPH(basefrequency);
             
             setBrake(roadenable * (POTaverage));
+            PWM_extra = 0;
             
             if (DEBUGGING)
             {
@@ -322,6 +329,7 @@ start:
                 Serial.print("POT Average: ");
                 Serial.println(POTaverage,2);
             }
+            break;
         }
         
         oldPOTaverage = POTaverage;
@@ -333,8 +341,8 @@ start:
         speederror = currentspeed - basespeed;
         if (DEBUGGING)
         {
-         Serial.print("Speed error = ");
-         Serial.println(speederror,2);
+            Serial.print("Speed error = ");
+            Serial.println(speederror,2);
         }
         
         if (currentspeed < 5)                           // speed too low, turn off controls
@@ -391,7 +399,7 @@ start:
         Serial.println("Not controlling road");
     }
     
-    delay(1000);
+    //delay(1000);
     // loop back to start
 }
 
