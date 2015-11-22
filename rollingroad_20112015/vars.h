@@ -9,12 +9,12 @@ const int TORQUEpin = 1; // Analog 1 (PIN 15 on Teensy 3.1)
 
 // Braking POT variables
 int potval = 0, oldpotval = 0;
-const int numReadings = 10;
-int POTreadings[numReadings];      // the readings from the analog input
-int POTindex = 0;                  // the index of the current reading
-int POTtotal = 0;                  // the running total
-int POTaverage = 0;                // the average
-int oldPOTaverage = 0;             // previous average
+const unsigned int numReadings = 10;
+unsigned int POTreadings[numReadings];      // the readings from the analog input
+unsigned int POTindex = 0;                  // the index of the current reading
+unsigned int POTtotal = 0;                  // the running total
+unsigned int POTaverage = 0;                // the average
+unsigned int oldPOTaverage = 0;             // previous average
 
 // Torque variables
 unsigned TORQUEaverage = 0;

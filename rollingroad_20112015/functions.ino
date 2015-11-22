@@ -10,7 +10,7 @@ void Serial_Update()
         char pBuffer[uBufSize];
         memcpy(pBuffer, &data_packet, uBufSize);
         
-        for(int i = 0; i<uBufSize;i++)
+        for(unsigned int i = 0; i<uBufSize;i++)
         {
             Serial.print(pBuffer[i]);
         }
@@ -19,15 +19,19 @@ void Serial_Update()
     }
 }
 
-int getTORQUEaverage(void)
+int getTORQUEaverage(unsigned int cta)
 {
-    unsigned int ta = 0;
+    float ta = 0.0;
+    float fta = cta;
     for (unsigned int i = 0; i < 10; i++)
     {
         ta += analogRead(TORQUEpin);
     }
-    ta /= 10;
-    return ta;
+    ta /= 10.0;
+    
+    fta -= fta/200.0;
+    fta += ta/200;
+    return (unsigned int) fta;
 }
 
 int getPOTaverage(void)
