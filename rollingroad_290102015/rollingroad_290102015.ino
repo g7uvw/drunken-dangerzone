@@ -19,8 +19,8 @@
 // think of it as PLL or FLL and brake is the error val for correction.
 
 
-#define NO_BINARY_OUTPUT false
-#define DEBUGGING false
+#define NO_BINARY_OUTPUT true
+#define DEBUGGING true
 //#define SCALEFACTOR 100
 #define SCALEFACTOR 1000
 
@@ -32,6 +32,9 @@
 
 // Pin mappings
 const int LEDpin = 13;
+const int REDLED = 9;
+const int GREENLED = 7;
+const int YELLOWLED = 5;
 const int BRAKEpin = A14; //was 23
 const int READYpin = 22;
 const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
@@ -111,8 +114,9 @@ void setup()
     //FreqMeasure2.begin();
     pinMode(LEDpin, OUTPUT);            // LED setup
     pinMode(READYpin,OUTPUT);
-    
-    
+    pinMode(REDLED,OUTPUT);
+    pinMode(GREENLED,OUTPUT);
+    pinMode(YELLOWLED,OUTPUT);
 }
 
 void loop()
@@ -198,6 +202,9 @@ start:
     
     while (POTaverage < 25)
     {
+      digitalWrite(REDLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+      digitalWrite(GREENLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+      digitalWrite(YELLOWLED, HIGH);   // turn the LED on (HIGH is the voltage level)
         setBrake(0);
         basefrequency = getFREQaverage(5);  // take 5 samples
         basespeed = FreqToMPH(basefrequency);
@@ -223,17 +230,20 @@ start:
         }
         
     }
+    digitalWrite(REDLED, LOW);   // turn the LED on (HIGH is the voltage level)
+    digitalWrite(GREENLED, LOW);   // turn the LED on (HIGH is the voltage level)
+    digitalWrite(YELLOWLED, LOW);   // turn the LED on (HIGH is the voltage level)
     
     // I'm not sure what sort of noise we'll get on the POT reading, so for now see if it
-    // is in the range +/- 10 of what it started as. This can be tweeked in the final install.
+    // is in the range +/- 3 of what it started as. This can be tweeked in the final install.
     // uncomment serial.print lines for debugging this.
     while (!(POTaverage <= POTaverage+3 && !(POTaverage < POTaverage-3)))
     {
-        //if (!once_worked)
-        //{
+      digitalWrite(REDLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+      digitalWrite(GREENLED, LOW);   // turn the LED on (HIGH is the voltage level)
+      digitalWrite(YELLOWLED, HIGH);   // turn the LED on (HIGH is the voltage level)
         basefrequency = getFREQaverage(5);  // take 5 samples
         basespeed = FreqToMPH(basefrequency);
-        //}
         data_packet.speedo = (uint16_t)basespeed;
         Serial_Update();
         POTaverage = getPOTaverage();
@@ -248,6 +258,9 @@ start:
         
     }
     
+    digitalWrite(REDLED, LOW);   // turn the LED on (HIGH is the voltage level)
+    digitalWrite(GREENLED, LOW);   // turn the LED on (HIGH is the voltage level)
+    digitalWrite(YELLOWLED, LOW);   // turn the LED on (HIGH is the voltage level)
     
     // when we make it here, the driver should have finished setting pot for his choice of speed
     // get a baseline frequency (speed)
@@ -281,6 +294,9 @@ start:
     
     while (controllingroad)
     {
+        digitalWrite(GREENLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+        digitalWrite(REDLED, LOW);   // turn the LED on (HIGH is the voltage level)
+        digitalWrite(YELLOWLED, LOW);   // turn the LED on (HIGH is the voltage level)
         
         if (!freewheel)
         {
@@ -314,6 +330,8 @@ start:
         if (!((POTaverage <= (oldPOTaverage + 2)) && !(  POTaverage < (oldPOTaverage - 2) )))
             // pot has been changed, probably going to change car speed, need to recalibrate
         {
+            digitalWrite(REDLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+            digitalWrite(GREENLED, LOW);   // turn the LED on (HIGH is the voltage level)
             controllingroad = false;
             basefrequency = getFREQaverage(5);  // take 5 samples
             basespeed = FreqToMPH(basefrequency);
@@ -325,9 +343,9 @@ start:
             {
                 Serial.println("Pot Value changed");
                 Serial.print("OldPOT Average: ");
-                Serial.print(oldPOTaverage,2);
+                Serial.println(oldPOTaverage);
                 Serial.print("POT Average: ");
-                Serial.println(POTaverage,2);
+                Serial.println(POTaverage);
             }
             break;
         }
@@ -339,6 +357,11 @@ start:
         previousspeed = currentspeed;                   // save old speed
         currentspeed = FreqToMPH(getFREQaverage(10));   // get new speed
         speederror = currentspeed - basespeed;
+        
+        digitalWrite(GREENLED, HIGH);
+        digitalWrite(REDLED, LOW);
+        digitalWrite(YELLOWLED, LOW);
+        
         if (DEBUGGING)
         {
             Serial.print("Speed error = ");
@@ -350,6 +373,7 @@ start:
             setBrake(0);
             PWM_extra = 0;
             controllingroad = false;
+            freewheel = true;
             
             if (DEBUGGING)
             {
