@@ -8,11 +8,11 @@
 #include "rollingroad.h"
 
 // Scale factor
-#define SCALEFACTOR 1000
+#define SCALEFACTOR 100
 
 // Debugging defines
-#define NO_BINARY_OUTPUT true
-#define DEBUGGING true
+#define NO_BINARY_OUTPUT false
+#define DEBUGGING false
 
 
 void setup()
