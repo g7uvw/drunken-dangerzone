@@ -2,13 +2,19 @@
 // v3.0 if I ever need to make it will be PID control.
 // (c) David Mills - dave@webshed.org
 
+// Holding stable to +/- 20 or so RPM, occasional glitches and extra loading happening.
+// Move to full PID control
+// Make the LEDS make sense.
+
+
+
 #include <FreqMeasure.h>
 #include "vars.h"
 #include "struct.h"
 #include "rollingroad.h"
 
 // Scale factor
-#define SCALEFACTOR 100
+#define SCALEFACTOR 10
 
 // Debugging defines
 #define NO_BINARY_OUTPUT false

@@ -1,7 +1,7 @@
 // Pin mappings
-const int REDLED = 9;
+const int REDLED = 5;
 const int GREENLED = 7;
-const int YELLOWLED = 5;
+const int YELLOWLED = 9;
 
 const int BRAKEpin = A14; //was 23
 const int POTpin = 0;  // Analog 0 (PIN 14 on Teensy 3.1)
