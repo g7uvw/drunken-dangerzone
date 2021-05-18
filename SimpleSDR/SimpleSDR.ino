@@ -7,7 +7,7 @@
 
 
   //samp_rate: sampling rate of the input signal (in samples per second)
-const float samp_rate = 240000; 
+const float samp_rate = 240000;
   //output_rate: sampling rate of the output audio signal (in samples per second)
 const int output_rate = 48000; 
   //ssb_bw: filter bandwidth for SSB in Hz
@@ -20,29 +20,40 @@ const float decimate_transition_bw = 800;
 
 float hamming(float x) { return (0.54-0.46*(2*M_PI*(0.5+(x/2)))); } //hamming window function used for FIR filter design
 
-void setup() {
 
     // ====== calculate parameters for frequency translation and the decimating FIR filter ===
       //modulation: can be 'l', 'u', 'a', 'f' for LSB, USB, AM, FM respectively
     char modulation = 'a'; // fixed AM for now
+    
       //d_shift_phase: how much the LO phase is changed from sample to sample when generating the LO (for the shift)
-    float d_shift_phase = ((atoi(argv[2])-atoi(argv[1]))/samp_rate)*2*M_PI; 
+    float d_shift_phase = 0;//((atoi(argv[2])-atoi(argv[1]))/samp_rate)*2*M_PI; 
+     
       //shift_phase: actual LO phase (for shift)
     float shift_phase = 0; 
+     
       //deicmate_taps_length: how many FIR filter taps we need to reach a given transition BW (should be odd, thus the |1)
     const int decimate_taps_length = (int)(4.0f/(decimate_transition_bw/samp_rate)) | 1; 
+    
      //decimate_taps: FIR filter taps for the decimating FIR filter:
-    complex float* decimate_taps = malloc(sizeof(complex float)*decimate_taps_length); 
+    __complex__ float* decimate_taps = (__complex__ float*) malloc(2*sizeof(float)*decimate_taps_length); 
+     
       //decimate_buffer: the last <decimate_taps_length> pieces of shifted input samples, on which the decimating FIR is applied
-    complex float* decimate_buffer = calloc(sizeof(complex float),decimate_taps_length); 
+    __complex__ float* decimate_buffer = (__complex__ float*) calloc(2*sizeof( float),decimate_taps_length); 
+     
       //decimate_taps_middle: the index of the item in the exact middle of <decimate_taps>
     int decimate_taps_middle = decimate_taps_length/2; 
+      
       //decimate_factor: only 1 out of <decimate_factor> samples will remain at the output of the decimating FIR filter
     int decimate_factor = samp_rate / output_rate; 
+      
       //decimate_dshift: in case of SSB mode, we shift the filter taps in the frequency domain, so that the filter will have an asymmetric transmission curve
-    const complex float decimate_dshift = (modulation=='u'?1:-1) * ((ssb_bw/2)/samp_rate)*2*M_PI;
-    / /decimate_cutoff_rate: the cutoff frequency (in proportion to the sampling frequency) of the decimating FIR filter
+    const __complex__ float decimate_dshift = (modulation=='u'?1:-1) * ((ssb_bw/2)/samp_rate)*2*M_PI;
+    
+      //decimate_cutoff_rate: the cutoff frequency (in proportion to the sampling frequency) of the decimating FIR filter
     const float decimate_cutoff_rate = (modulation=='u'||modulation=='l') ? (ssb_bw/2)/samp_rate : (amfm_bw/2)/samp_rate;
+    
+void setup() {
+
 
     // ====== design the FIR filter ===
       //calculate the tap in the middle:
@@ -72,7 +83,7 @@ void loop() {
         // ====== load input samples (I and Q) ===
         int input_i = getchar(); 
         int input_q = getchar();
-        complex float input = ((float)input_i/(UCHAR_MAX/2.0)-1.0) + I*((float)input_q/(UCHAR_MAX/2.0)-1.0); 
+        __complex__ float input = ((float)input_i/(UCHAR_MAX/2.0)-1.0) + I*((float)input_q/(UCHAR_MAX/2.0)-1.0); 
 
         // ====== apply frequency translation (a.k.a. shift) ===
         //we increase the current LO phase by <d_shift_phase>:
@@ -92,7 +103,7 @@ void loop() {
             //we only run this part 1 time out of <decimate_factor> times of getting here:
             decimate_counter = 0;
             //we apply the decimating FIR filter, the result of which is <decimated>:
-            complex float decimated = CMPLX(0,0); 
+            __complex__ float decimated = CMPLX(0,0); 
             for(int i=0; i<=decimate_taps_length; i++) decimated += decimate_buffer[i] * decimate_taps[i];
             //we shift the items in the buffer back <decimate_taps_length> samples:
             memmove(decimate_buffer, decimate_buffer+decimate_factor, (decimate_taps_length-decimate_factor)*sizeof(complex float));
